@@ -28,7 +28,6 @@ const mockMoments: SharedMoment[] = [
     highlights: [],
     engagement: {
       likes: 10,
-      comments: 3,
       shares: 2,
       isLikedByUser: false,
       isBookmarkedByUser: false
@@ -71,7 +70,6 @@ const mockMoments: SharedMoment[] = [
     ],
     engagement: {
       likes: 25,
-      comments: 8,
       shares: 5,
       isLikedByUser: true,
       isBookmarkedByUser: false
@@ -131,16 +129,7 @@ describe('SocialFeed', () => {
     expect(onLike).toHaveBeenCalledWith('moment-1')
   })
 
-  it('handles comment interaction', () => {
-    const onComment = jest.fn()
-    render(<SocialFeed moments={mockMoments} onComment={onComment} />)
-    
-    const commentButtons = screen.getAllByLabelText('Comment on this moment')
-    expect(commentButtons).toHaveLength(2)
-    
-    commentButtons[0].click()
-    expect(onComment).toHaveBeenCalledWith('moment-1')
-  })
+
 
   it('handles share interaction', () => {
     const onShare = jest.fn()

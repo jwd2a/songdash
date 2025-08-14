@@ -13,7 +13,7 @@ import {
 } from './types'
 
 // Helper function to transform database rows to app types
-function transformMomentFromDB(momentRow: any, userRow: any, songRow: any, highlights: any[], likesCount: number, commentsCount: number, isLikedByUser: boolean): SharedMoment {
+function transformMomentFromDB(momentRow: any, userRow: any, songRow: any, highlights: any[], likesCount: number, isLikedByUser: boolean): SharedMoment {
   return {
     id: momentRow.id,
     user: {
@@ -53,7 +53,6 @@ function transformMomentFromDB(momentRow: any, userRow: any, songRow: any, highl
     })),
     engagement: {
       likes: likesCount,
-      comments: commentsCount,
       shares: 0, // TODO: Implement shares
       isLikedByUser,
       isBookmarkedByUser: false // TODO: Implement bookmarks
@@ -77,8 +76,7 @@ export async function getFeed(page = 1, limit = 10, currentUserId?: string): Pro
         users!inner(*),
         songs!inner(*),
         highlights(*),
-        likes(count),
-        comments(count)
+        likes(count)
       `, { count: 'exact' })
       .eq('visibility', 'public')
       .order('created_at', { ascending: false })
@@ -107,7 +105,7 @@ export async function getFeed(page = 1, limit = 10, currentUserId?: string): Pro
         moment.songs,
         moment.highlights || [],
         moment.likes?.[0]?.count || 0,
-        moment.comments?.[0]?.count || 0,
+
         userLikes.includes(moment.id)
       )
     ) || []
@@ -407,8 +405,7 @@ export async function getUserMoments(userId: string, page = 1, limit = 10, curre
         users!inner(*),
         songs!inner(*),
         highlights(*),
-        likes(count),
-        comments(count)
+        likes(count)
       `, { count: 'exact' })
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
@@ -437,7 +434,7 @@ export async function getUserMoments(userId: string, page = 1, limit = 10, curre
         moment.songs,
         moment.highlights || [],
         moment.likes?.[0]?.count || 0,
-        moment.comments?.[0]?.count || 0,
+
         userLikes.includes(moment.id)
       )
     ) || []

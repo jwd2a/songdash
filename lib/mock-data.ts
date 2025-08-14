@@ -185,7 +185,6 @@ export const mockMoments: SharedMoment[] = [
     highlights: [mockHighlights[0]],
     engagement: {
       likes: 23,
-      comments: 5,
       shares: 3,
       isLikedByUser: false,
       isBookmarkedByUser: false
@@ -202,7 +201,6 @@ export const mockMoments: SharedMoment[] = [
     highlights: [mockHighlights[1], mockHighlights[2]],
     engagement: {
       likes: 41,
-      comments: 12,
       shares: 7,
       isLikedByUser: true,
       isBookmarkedByUser: true

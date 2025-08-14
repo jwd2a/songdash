@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Heart, MessageCircle, Share2, ChevronDown, ChevronUp } from "lucide-react"
+import { Heart, Share2, ChevronDown, ChevronUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface MomentCardProps {
@@ -26,26 +26,23 @@ interface MomentCardProps {
     }>
     engagement: {
       likes: number
-      comments: number
       isLikedByUser: boolean
     }
     createdAt: string
   }
   onLike?: (momentId: string) => void
-  onComment?: (momentId: string) => void
+
   onShare?: (momentId: string) => void
 }
 
-export function MomentCard({ moment, onLike, onComment, onShare }: MomentCardProps) {
+export function MomentCard({ moment, onLike, onShare }: MomentCardProps) {
   const [showHighlights, setShowHighlights] = useState(false)
 
   const handleLike = async () => {
     onLike?.(moment.id)
   }
 
-  const handleComment = () => {
-    onComment?.(moment.id)
-  }
+
 
   const handleShare = () => {
     onShare?.(moment.id)
@@ -142,17 +139,7 @@ export function MomentCard({ moment, onLike, onComment, onShare }: MomentCardPro
           <span className="transition-all duration-200">{moment.engagement.likes}</span>
         </Button>
         
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleComment}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 p-2 h-auto min-h-[44px] touch-manipulation"
-          aria-label="Comment on this moment"
-        >
-          <MessageCircle className="w-4 h-4" />
-          <span>{moment.engagement.comments}</span>
-        </Button>
-        
+
         <Button
           variant="ghost"
           size="sm"

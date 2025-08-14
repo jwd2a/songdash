@@ -33,11 +33,11 @@ interface SharedMoment {
 interface SocialFeedProps {
   moments?: SharedMoment[]
   onLike?: (momentId: string) => void
-  onComment?: (momentId: string) => void
+
   onShare?: (momentId: string) => void
 }
 
-export function SocialFeed({ moments: propMoments, onLike, onComment, onShare }: SocialFeedProps) {
+export function SocialFeed({ moments: propMoments, onLike, onShare }: SocialFeedProps) {
   const [moments, setMoments] = useState<SharedMoment[]>(propMoments || [])
   const [loading, setLoading] = useState(!propMoments || propMoments.length === 0)
 
@@ -182,10 +182,7 @@ export function SocialFeed({ moments: propMoments, onLike, onComment, onShare }:
     onLike?.(momentId)
   }
 
-  const handleComment = (momentId: string) => {
-    // For now, just call the callback
-    onComment?.(momentId)
-  }
+
 
   const handleShare = (momentId: string) => {
     const moment = moments.find(m => m.id === momentId)
@@ -249,7 +246,6 @@ export function SocialFeed({ moments: propMoments, onLike, onComment, onShare }:
           <MomentCard
             moment={moment}
             onLike={handleLike}
-            onComment={handleComment}
             onShare={handleShare}
           />
         </div>

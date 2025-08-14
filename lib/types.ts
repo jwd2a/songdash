@@ -49,7 +49,6 @@ export interface SharedMoment {
   highlights: HighlightedSection[]
   engagement: {
     likes: number
-    comments: number
     shares: number
     isLikedByUser: boolean
     isBookmarkedByUser: boolean
@@ -59,14 +58,7 @@ export interface SharedMoment {
   updatedAt: string
 }
 
-export interface Comment {
-  id: string
-  user: User
-  momentId: string
-  content: string
-  createdAt: string
-  updatedAt: string
-}
+
 
 export interface Like {
   id: string

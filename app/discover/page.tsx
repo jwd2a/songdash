@@ -299,10 +299,7 @@ export default function DiscoverPage() {
                       {moment.stats.likes}
                     </Button>
 
-                    <Button variant="ghost" size="sm" className="flex items-center gap-2 text-muted-foreground">
-                      <MessageCircle className="w-4 h-4" />
-                      {moment.stats.comments}
-                    </Button>
+
 
                     <Button
                       variant="ghost"

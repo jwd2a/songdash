@@ -94,7 +94,6 @@ export default function HomePage() {
             })),
             engagement: {
               likes: Math.floor(Math.random() * 50) + 1, // Mock engagement data for now
-              comments: Math.floor(Math.random() * 10),
               isLikedByUser: false
             },
             createdAt: new Date(apiMoment.created_at).toLocaleDateString()

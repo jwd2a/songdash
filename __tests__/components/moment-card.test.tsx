@@ -36,7 +36,6 @@ const mockMoment: SharedMoment = {
   ],
   engagement: {
     likes: 5,
-    comments: 2,
     shares: 1,
     isLikedByUser: false,
     isBookmarkedByUser: false
@@ -67,16 +66,7 @@ describe('MomentCard', () => {
     expect(onLike).toHaveBeenCalledWith('test-moment-1')
   })
 
-  it('shows comment count and handles comment interaction', () => {
-    const onComment = jest.fn()
-    render(<MomentCard moment={mockMoment} onComment={onComment} />)
-    
-    const commentButton = screen.getByLabelText('Comment on this moment')
-    expect(screen.getByText('2')).toBeInTheDocument()
-    
-    fireEvent.click(commentButton)
-    expect(onComment).toHaveBeenCalledWith('test-moment-1')
-  })
+
 
   it('toggles highlighted lyrics visibility', () => {
     render(<MomentCard moment={mockMoment} />)
