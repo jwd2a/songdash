@@ -2,14 +2,13 @@
 
 import type React from "react"
 import { useState, useRef, useCallback, useEffect } from "react"
-import { ArrowLeft, Share2, Plus, Edit3, Copy, Check, Loader2, AlertCircle, X } from "lucide-react"
+import { ArrowLeft, Edit3, Loader2, AlertCircle, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { ShareSection } from "./share-section"
+import { ShareURLGenerator } from "@/lib/share-url-generator"
 
 interface Song {
   id: string
@@ -42,16 +41,20 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
   const [selectedHighlight, setSelectedHighlight] = useState<HighlightedSection | null>(null)
   const [noteText, setNoteText] = useState("")
   const noteTextareaRef = useRef<HTMLTextAreaElement>(null)
-  const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareUrl, setShareUrl] = useState("")
-  const [copied, setCopied] = useState(false)
   const [generalNote, setGeneralNote] = useState("")
   const [lyrics, setLyrics] = useState<string>("")
   const [lyricsLoading, setLyricsLoading] = useState(true)
   const [lyricsError, setLyricsError] = useState<string | null>(null)
-  const [shareLoading, setShareLoading] = useState(false)
+
   const lyricsRef = useRef<HTMLDivElement>(null)
   const [showHighlightNotification, setShowHighlightNotification] = useState(false)
+  
+  // New state for prominent share functionality
+  const [isGeneratingUrl, setIsGeneratingUrl] = useState(false)
+  const [urlError, setUrlError] = useState<string | null>(null)
+  const [isUrlCopied, setIsUrlCopied] = useState(false)
+  const shareUrlGeneratorRef = useRef<ShareURLGenerator>(new ShareURLGenerator())
 
   useEffect(() => {
     const fetchLyrics = async () => {
@@ -118,13 +121,50 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
   const removeHighlight = (highlightId: string) => {
     setHighlights((prev) => prev.filter((h) => h.id !== highlightId))
     setSelectedHighlight(null)
+    // Trigger share URL regeneration
+    regenerateShareUrl()
   }
 
   const addNoteToHighlight = (highlightId: string, note: string) => {
     setHighlights((prev) => prev.map((h) => (h.id === highlightId ? { ...h, note } : h)))
     setSelectedHighlight((prev) => (prev ? { ...prev, note } : null))
     setNoteText("")
+    // Trigger share URL regeneration
+    regenerateShareUrl()
   }
+
+  // Handle general note changes
+  const handleGeneralNoteChange = useCallback((note: string) => {
+    setGeneralNote(note)
+    regenerateShareUrl()
+  }, [])
+
+  // Handle URL copying
+  const handleCopyUrl = useCallback(() => {
+    setIsUrlCopied(true)
+    setTimeout(() => setIsUrlCopied(false), 2000)
+  }, [])
+
+  // Regenerate share URL when content changes
+  const regenerateShareUrl = useCallback(() => {
+    const generator = shareUrlGeneratorRef.current
+    generator.generateShareURL(
+      song,
+      highlights,
+      generalNote,
+      (url) => {
+        setShareUrl(url)
+        setUrlError(null)
+      },
+      (error) => {
+        setUrlError(error)
+        setShareUrl("")
+      },
+      (loading) => {
+        setIsGeneratingUrl(loading)
+      }
+    )
+  }, [song, highlights, generalNote])
 
   // Auto-focus textarea when a highlight without a note is selected
   useEffect(() => {
@@ -135,59 +175,19 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
     }
   }, [selectedHighlight])
 
-  const generateShareUrl = async () => {
-    setShareLoading(true)
+  // Generate initial share URL and regenerate when content changes
+  useEffect(() => {
+    regenerateShareUrl()
+  }, [regenerateShareUrl])
 
-    try {
-      const highlightsWithNotes = highlights.filter((h) => h.note)
-
-      const response = await fetch("/api/moments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          song,
-          highlights: highlightsWithNotes,
-          generalNote: generalNote.trim() || undefined,
-          createdAt: new Date().toISOString(),
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to create share link")
-      }
-
-      const data = await response.json()
-      setShareUrl(data.shareUrl)
-      setShareDialogOpen(true)
-    } catch (err) {
-      console.error("Share error:", err)
-      // Fallback to client-side generation if API fails
-      const moment = {
-        song,
-        highlights: highlights.filter((h) => h.note),
-        generalNote: generalNote.trim() || undefined,
-        createdAt: new Date().toISOString(),
-      }
-      const momentId = btoa(JSON.stringify(moment)).slice(0, 12)
-      const url = `${window.location.origin}/shared/${momentId}`
-      setShareUrl(url)
-      setShareDialogOpen(true)
-    } finally {
-      setShareLoading(false)
+  // Cleanup share URL generator on unmount
+  useEffect(() => {
+    return () => {
+      shareUrlGeneratorRef.current.cancel()
     }
-  }
+  }, [])
 
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      console.error("Failed to copy:", err)
-    }
-  }
+
 
   const renderLyricsWithHighlights = () => {
     if (highlights.length === 0) {
@@ -271,18 +271,26 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
               </div>
             </div>
           </div>
-          <Button
-            onClick={generateShareUrl}
-            disabled={shareLoading}
-            size="sm"
-            style={{ backgroundColor: "var(--violet-accent)" }}
-            className="text-white hover:opacity-90 disabled:opacity-50"
-          >
-            {shareLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Share2 className="w-4 h-4 mr-2" />}
-            Share
-          </Button>
+
         </div>
       </div>
+
+      {/* Share Section - Outside of lyrics container */}
+      {!lyricsLoading && !lyricsError && (
+        <div className="max-w-4xl mx-auto px-6">
+          <ShareSection
+            song={song}
+            highlights={highlights}
+            generalNote={generalNote}
+            onGeneralNoteChange={handleGeneralNoteChange}
+            shareUrl={shareUrl}
+            onCopyUrl={handleCopyUrl}
+            isUrlCopied={isUrlCopied}
+            isGeneratingUrl={isGeneratingUrl}
+            urlError={urlError}
+          />
+        </div>
+      )}
 
       <div className="max-w-4xl mx-auto px-6 py-12">
         {lyricsLoading ? (
@@ -297,11 +305,12 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
           </Alert>
         ) : (
           <div>
-            <div className="mb-12 text-center">
-              <p className="text-lg text-muted-foreground">
+            <div className="mb-8 text-center">
+              <p className="text-sm text-muted-foreground">
                 Select any lyrics to highlight them and add your personal notes
               </p>
             </div>
+            
             <div
               ref={lyricsRef}
               className="text-2xl leading-loose select-text cursor-text text-center max-w-none"
@@ -421,59 +430,7 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
 
 
 
-      {/* Share Dialog */}
-      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Share this song</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-3">
-              <div>
-                <Label htmlFor="general-note">Add a note about this song (optional):</Label>
-                <Textarea
-                  id="general-note"
-                  placeholder="This song reminds me of summer nights..."
-                  value={generalNote}
-                  onChange={(e) => setGeneralNote(e.target.value)}
-                  className="mt-1"
-                  rows={2}
-                />
-              </div>
 
-              {highlightsWithNotes.length > 0 && (
-                <div className="p-3 bg-muted rounded-lg">
-                  <p className="text-sm font-medium mb-1">Also sharing:</p>
-                  <p className="text-sm text-muted-foreground">
-                    {highlightsWithNotes.length} highlighted lyric{highlightsWithNotes.length !== 1 ? "s" : ""} with
-                    personal notes
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              <Input value={shareUrl} readOnly className="flex-1" />
-              <Button onClick={copyToClipboard} variant="outline">
-                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              </Button>
-            </div>
-
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShareDialogOpen(false)}>
-                Close
-              </Button>
-              <Button
-                onClick={copyToClipboard}
-                style={{ backgroundColor: "var(--violet-accent)" }}
-                className="text-white hover:opacity-90"
-              >
-                {copied ? "Copied!" : "Copy Link"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

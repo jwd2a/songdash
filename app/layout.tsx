@@ -16,9 +16,21 @@ const dmSans = DM_Sans({
 })
 
 export const metadata: Metadata = {
-  title: "LyricLoop - Share Music Moments",
-  description: "Highlight lyrics, add personal notes, and share songs across all music platforms",
-  generator: "v0.app",
+  title: "SongDash - Social Music Sharing",
+  description: "Share song moments with highlighted lyrics and personal notes. Discover new music through social connections.",
+  metadataBase: new URL(process.env.NODE_ENV === 'production' ? 'https://songdash.io' : 'http://localhost:3000'),
+  openGraph: {
+    title: "SongDash - Social Music Sharing",
+    description: "Share song moments with highlighted lyrics and personal notes. Discover new music through social connections.",
+    url: process.env.NODE_ENV === 'production' ? 'https://songdash.io' : 'http://localhost:3000',
+    siteName: 'SongDash',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: "SongDash - Social Music Sharing",
+    description: "Share song moments with highlighted lyrics and personal notes. Discover new music through social connections.",
+  }
 }
 
 export default function RootLayout({

@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       signal: controller.signal,
       headers: {
         Authorization: `Bearer ${geniusToken}`,
-        "User-Agent": "LyricLoop/1.0",
+        "User-Agent": "SongDash/1.0",
       },
     })
 
@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
       const lrcResponse = await fetch(lrcUrl, {
         signal: lrcController.signal,
         headers: {
-          "User-Agent": "LyricLoop/1.0",
+          "User-Agent": "SongDash/1.0",
           Accept: "application/json",
         },
       })
@@ -172,7 +172,7 @@ export async function GET(request: NextRequest) {
       const backupResponse = await fetch(backupUrl, {
         signal: backupController.signal,
         headers: {
-          "User-Agent": "LyricLoop/1.0",
+          "User-Agent": "SongDash/1.0",
           Accept: "application/json",
         },
       })

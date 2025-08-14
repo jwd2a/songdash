@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
             `https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(track.external_urls.spotify)}`,
             {
               headers: {
-                "User-Agent": "LyricLoop/1.0",
+                "User-Agent": "SongDash/1.0",
               },
             },
           )

@@ -149,13 +149,13 @@ export default function DiscoverPage() {
   }
 
   const handleShare = (moment: LyricMoment) => {
-    const shareText = `"${moment.highlight.text}" - ${moment.song.artist}\n\n${moment.highlight.note}\n\nShared via LyricLoop`
+    const shareText = `"${moment.highlight.text}" - ${moment.song.artist}\n\n${moment.highlight.note}\n\nShared via SongDash`
 
     if (navigator.share) {
       navigator.share({
         title: `${moment.song.title} by ${moment.song.artist}`,
         text: shareText,
-        url: window.location.origin,
+        url: process.env.NODE_ENV === 'production' ? 'https://songdash.io' : window.location.origin,
       })
     } else {
       navigator.clipboard.writeText(shareText)

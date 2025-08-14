@@ -72,7 +72,7 @@ export async function generateUniversalLink(song: any): Promise<string> {
         `https://api.song.link/v1-alpha.1/links?url=${encodeURIComponent(song.platforms.spotify)}`,
         {
           headers: {
-            "User-Agent": "LyricLoop/1.0",
+            "User-Agent": "SongDash/1.0",
           },
         },
       )
@@ -81,7 +81,7 @@ export async function generateUniversalLink(song: any): Promise<string> {
         const data = await response.json()
         return (
           data.pageUrl ||
-          `${window.location.origin}/listen?song=${encodeURIComponent(
+          `${process.env.NODE_ENV === 'production' ? 'https://songdash.io' : window.location.origin}/listen?song=${encodeURIComponent(
             JSON.stringify({
               title: song.title,
               artist: song.artist,
@@ -103,7 +103,8 @@ export async function generateUniversalLink(song: any): Promise<string> {
       platforms: song.platforms,
     }),
   )
-  return `${window.location.origin}/listen?song=${songData}`
+  const baseUrl = process.env.NODE_ENV === 'production' ? 'https://songdash.io' : window.location.origin
+  return `${baseUrl}/listen?song=${songData}`
 }
 
 export function extractTrackId(url: string, platform: string): string | null {

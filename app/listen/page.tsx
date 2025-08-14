@@ -86,7 +86,7 @@ export default function ListenPage() {
           <p className="text-muted-foreground mb-4">This song link doesn't exist or may be invalid.</p>
           <Link href="/">
             <Button style={{ backgroundColor: "var(--violet-accent)" }} className="text-white hover:opacity-90">
-              Explore LyricLoop
+              Explore SongDash
             </Button>
           </Link>
         </div>
@@ -110,7 +110,7 @@ export default function ListenPage() {
             <Link href="/">
               <Button variant="ghost" className="flex items-center gap-2">
                 <ArrowLeft className="w-4 h-4" />
-                Back to LyricLoop
+                Back to SongDash
               </Button>
             </Link>
           </div>

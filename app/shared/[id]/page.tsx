@@ -212,7 +212,7 @@ export default function SharedMomentPage() {
           <p className="text-muted-foreground mb-4">This lyric moment doesn't exist or the link may be invalid.</p>
           <Link href="/">
             <Button style={{ backgroundColor: "var(--violet-accent)" }} className="text-white hover:opacity-90">
-              Explore LyricLoop
+              Explore SongDash
             </Button>
           </Link>
         </div>
@@ -233,7 +233,7 @@ export default function SharedMomentPage() {
             <Link href="/">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Explore LyricLoop
+                Explore SongDash
               </Button>
             </Link>
             <div className="flex items-center gap-3">
