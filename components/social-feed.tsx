@@ -39,11 +39,19 @@ interface SocialFeedProps {
 
 export function SocialFeed({ moments: propMoments, onLike, onComment, onShare }: SocialFeedProps) {
   const [moments, setMoments] = useState<SharedMoment[]>(propMoments || [])
-  const [loading, setLoading] = useState(!propMoments)
+  const [loading, setLoading] = useState(!propMoments || propMoments.length === 0)
 
   useEffect(() => {
-    if (!propMoments) {
-      // Load mock data if no moments provided
+    if (propMoments && propMoments.length > 0) {
+      // Use provided moments
+      setMoments(propMoments)
+      setLoading(false)
+    } else if (propMoments && propMoments.length === 0) {
+      // Empty array provided - no moments
+      setMoments([])
+      setLoading(false)
+    } else {
+      // No moments provided - load mock data
       const mockMoments: SharedMoment[] = [
         {
           id: "1",
@@ -112,9 +120,6 @@ export function SocialFeed({ moments: propMoments, onLike, onComment, onShare }:
         setMoments(mockMoments)
         setLoading(false)
       }, 1000)
-    } else {
-      setMoments(propMoments)
-      setLoading(false)
     }
   }, [propMoments])
 

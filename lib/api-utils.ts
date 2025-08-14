@@ -28,11 +28,12 @@ export function createSuccessResponse(data: any, statusCode: number = 200) {
 }
 
 export function validateMomentData(data: any): { isValid: boolean; error?: string } {
-  if (!data.song) {
-    return { isValid: false, error: "Song data is required" }
-  }
+  // Handle both old format (data.song) and new format (separate song fields)
+  const songId = data.song?.id || data.songId
+  const songTitle = data.song?.title || data.songTitle
+  const songArtist = data.song?.artist || data.songArtist
 
-  if (!data.song.id || !data.song.title || !data.song.artist) {
+  if (!songId || !songTitle || !songArtist) {
     return { isValid: false, error: "Song must have id, title, and artist" }
   }
 
@@ -42,8 +43,8 @@ export function validateMomentData(data: any): { isValid: boolean; error?: strin
 
   // Validate each highlight
   for (const highlight of data.highlights) {
-    if (!highlight.id || !highlight.text) {
-      return { isValid: false, error: "Each highlight must have id and text" }
+    if (!highlight.text) {
+      return { isValid: false, error: "Each highlight must have text" }
     }
     
     if (typeof highlight.startIndex !== 'number' || typeof highlight.endIndex !== 'number') {
@@ -68,19 +69,27 @@ export function validateMomentData(data: any): { isValid: boolean; error?: strin
 }
 
 export function sanitizeMomentData(data: any) {
+  // Handle both old format (data.song) and new format (separate song fields)
+  const songId = data.song?.id || data.songId
+  const songTitle = data.song?.title || data.songTitle
+  const songArtist = data.song?.artist || data.songArtist
+  const songAlbum = data.song?.album || data.songAlbum
+  const songArtwork = data.song?.image || data.songArtwork
+  const songPlatforms = data.song?.platforms || data.songPlatforms
+  const songDuration = data.song?.duration || data.songDuration
+
   return {
-    song: {
-      id: data.song.id,
-      title: data.song.title.trim(),
-      artist: data.song.artist.trim(),
-      album: data.song.album?.trim() || '',
-      image: data.song.image || '',
-      platforms: data.song.platforms || {}
-    },
+    songId,
+    songTitle: songTitle.trim(),
+    songArtist: songArtist.trim(),
+    songAlbum: songAlbum?.trim() || '',
+    songArtwork: songArtwork || '',
+    songPlatforms: songPlatforms || {},
+    songDuration: songDuration || '',
     highlights: data.highlights
       .filter((h: any) => h.note && h.note.trim()) // Only include highlights with notes
-      .map((h: any) => ({
-        id: h.id,
+      .map((h: any, index: number) => ({
+        id: h.id || `highlight-${index}`,
         text: h.text.trim(),
         startIndex: h.startIndex,
         endIndex: h.endIndex,

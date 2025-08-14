@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { Search } from "lucide-react"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
-import { searchSongs } from "@/lib/api"
+
 import { Song } from "@/lib/types"
 import { mockSongs } from "@/lib/mock-data"
 
@@ -14,27 +14,72 @@ export default function CreatePage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<Song[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const debounceRef = useRef<NodeJS.Timeout>()
 
-  const handleSearch = useCallback(async (query: string) => {
-    setSearchQuery(query)
-    if (query.trim()) {
-      setIsSearching(true)
-      try {
-        const response = await searchSongs({ query: query.trim() })
-        if (response.success) {
-          setSearchResults(response.data)
-        } else {
-          console.error('Search failed:', response.error)
-          setSearchResults([])
-        }
-      } catch (error) {
-        console.error('Search error:', error)
-        setSearchResults([])
-      } finally {
-        setIsSearching(false)
-      }
-    } else {
+  const performSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
       setSearchResults([])
+      setIsSearching(false)
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`)
+      if (response.ok) {
+        const data = await response.json()
+        // Transform Spotify API response to match our Song type
+        const transformedResults: Song[] = data.results.map((result: any) => ({
+          id: result.id,
+          title: result.title,
+          artist: result.artist,
+          album: result.album,
+          artwork: result.image,
+          lyrics: '', // Will be fetched later if needed
+          platforms: result.platforms,
+          duration: result.duration,
+          releaseDate: '' // Not provided by Spotify search
+        }))
+        setSearchResults(transformedResults)
+      } else {
+        console.error('Search failed:', response.statusText)
+        setSearchResults([])
+      }
+    } catch (error) {
+      console.error('Search error:', error)
+      setSearchResults([])
+    } finally {
+      setIsSearching(false)
+    }
+  }, [])
+
+  const handleSearchChange = useCallback((query: string) => {
+    setSearchQuery(query)
+    
+    // Clear existing timeout
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
+
+    // If query is empty, clear results immediately
+    if (!query.trim()) {
+      setSearchResults([])
+      setIsSearching(false)
+      return
+    }
+
+    // Set new timeout for debounced search
+    debounceRef.current = setTimeout(() => {
+      performSearch(query)
+    }, 300) // 300ms debounce delay
+  }, [performSearch])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+      }
     }
   }, [])
 
@@ -59,7 +104,7 @@ export default function CreatePage() {
             type="text"
             placeholder="Search for a song..."
             value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10 py-3 text-base bg-white border-gray-200 rounded-lg"
           />
         </div>

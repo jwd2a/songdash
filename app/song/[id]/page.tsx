@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { getSong, createMoment } from "@/lib/api"
+
 import { Song, HighlightedSection } from "@/lib/types"
 
 export default function SongDetailPage() {
@@ -20,15 +20,17 @@ export default function SongDetailPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
 
   useEffect(() => {
     const loadSong = async () => {
       try {
-        const response = await getSong(params.id as string)
-        if (response.success) {
-          setSong(response.data)
+        const response = await fetch(`/api/songs/${params.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          setSong(data) // The API returns the song data directly
         } else {
-          console.error('Failed to load song:', response.error)
+          console.error('Failed to load song:', response.statusText)
         }
       } catch (error) {
         console.error('Error loading song:', error)
@@ -62,28 +64,57 @@ export default function SongDetailPage() {
 
   const handleSaveMoment = async () => {
     if (!song || (!generalNote.trim() && highlights.length === 0)) {
+      console.log('❌ Cannot save: missing song or content')
       return
     }
 
+    console.log('🎵 Starting to save moment...')
+    console.log('Song:', song)
+    console.log('General note:', generalNote)
+    console.log('Highlights:', highlights)
+
     setSaving(true)
     try {
-      const response = await createMoment({
+      const requestBody = {
         songId: song.id,
+        songTitle: song.title,
+        songArtist: song.artist,
+        songAlbum: song.album,
+        songArtwork: song.artwork,
+        songPlatforms: song.platforms,
+        songDuration: song.duration,
         generalNote: generalNote.trim() || undefined,
         highlights,
         visibility: 'public'
+      }
+
+      console.log('📤 Sending request body:', requestBody)
+
+      // Use the direct API route instead of the library function
+      const response = await fetch('/api/moments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
       })
 
-      if (response.success) {
+      console.log('📥 Response status:', response.status)
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Success response:', data)
         setSaved(true)
-        setTimeout(() => {
-          router.push('/')
-        }, 1500)
+        setShareUrl(data.shareUrl)
+        // Don't auto-redirect, let user share first
       } else {
-        console.error('Failed to save moment:', response.error)
+        const errorData = await response.json()
+        console.error('❌ Failed to save moment:', errorData)
+        alert(`Failed to save moment: ${errorData.error || 'Unknown error'}`)
       }
     } catch (error) {
-      console.error('Error saving moment:', error)
+      console.error('💥 Error saving moment:', error)
+      alert(`Error saving moment: ${error.message}`)
     } finally {
       setSaving(false)
     }
@@ -146,9 +177,17 @@ export default function SongDetailPage() {
         {/* Song Info */}
         <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center flex-shrink-0">
-              <span className="text-2xl">🎵</span>
-            </div>
+            {song.artwork ? (
+              <img 
+                src={song.artwork} 
+                alt={`${song.title} by ${song.artist}`}
+                className="w-16 h-16 rounded object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">🎵</span>
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <h2 className="font-bold text-lg text-gray-900 truncate">{song.title}</h2>
               <p className="text-gray-600 truncate">{song.artist}</p>
@@ -182,13 +221,22 @@ export default function SongDetailPage() {
 
         {/* Lyrics */}
         <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
-          <div 
-            className="whitespace-pre-line text-gray-800 leading-relaxed select-text"
-            onMouseUp={handleTextSelection}
-            onTouchEnd={handleTextSelection}
-          >
-            {song.lyrics}
-          </div>
+          <h3 className="font-semibold mb-3 text-gray-900">Lyrics</h3>
+          {song.lyrics ? (
+            <div 
+              className="whitespace-pre-line text-gray-800 leading-relaxed select-text"
+              onMouseUp={handleTextSelection}
+              onTouchEnd={handleTextSelection}
+            >
+              {song.lyrics}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <div className="text-3xl mb-2">🎵</div>
+              <p>Lyrics not available for this song</p>
+              <p className="text-sm mt-1">You can still add notes and highlights!</p>
+            </div>
+          )}
         </div>
 
         {/* Selected Text Popup */}
@@ -233,8 +281,8 @@ export default function SongDetailPage() {
           <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
             <h3 className="font-semibold mb-3">Your Highlights ({highlights.length})</h3>
             <div className="space-y-3">
-              {highlights.map((highlight) => (
-                <div key={highlight.id} className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-200">
+              {highlights.map((highlight, index) => (
+                <div key={index} className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-200">
                   <blockquote className="text-sm italic text-blue-800 mb-1">
                     "{highlight.text}"
                   </blockquote>
@@ -246,27 +294,103 @@ export default function SongDetailPage() {
         )}
 
         {/* Save Button */}
-        <div className="pt-4">
-          <Button 
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-            disabled={(!generalNote.trim() && highlights.length === 0) || saving || saved}
-            onClick={handleSaveMoment}
-          >
-            {saving ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                Saving...
-              </>
-            ) : saved ? (
-              <>
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Moment Saved!
-              </>
-            ) : (
-              "Share Moment"
-            )}
-          </Button>
-        </div>
+        {!saved && (
+          <div className="pt-4">
+            <Button 
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+              disabled={(!generalNote.trim() && highlights.length === 0) || saving}
+              onClick={handleSaveMoment}
+            >
+              {saving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                  Creating Share Link...
+                </>
+              ) : (
+                "Create Share Link"
+              )}
+            </Button>
+          </div>
+        )}
+
+        {/* Share Interface */}
+        {saved && shareUrl && (
+          <div className="pt-4 space-y-4">
+            <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <h3 className="font-semibold text-green-800">Share Link Created!</h3>
+              </div>
+              
+              <div className="bg-white rounded-lg p-3 border border-green-200 mb-3">
+                <p className="text-sm text-gray-600 mb-2">Share this link with friends:</p>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="text" 
+                    value={shareUrl} 
+                    readOnly 
+                    className="flex-1 text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 font-mono"
+                  />
+                  <Button 
+                    size="sm" 
+                    onClick={() => {
+                      navigator.clipboard.writeText(shareUrl)
+                      // Could add a toast notification here
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => {
+                    if (navigator.share) {
+                      navigator.share({
+                        title: `${song.title} by ${song.artist}`,
+                        text: generalNote || `Check out this song moment I shared!`,
+                        url: shareUrl
+                      })
+                    } else {
+                      // Fallback for browsers without Web Share API
+                      navigator.clipboard.writeText(shareUrl)
+                    }
+                  }}
+                >
+                  Share
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => router.push('/')}
+                >
+                  Back to Feed
+                </Button>
+              </div>
+            </div>
+
+            <div className="text-center">
+              <p className="text-sm text-gray-500">
+                Want to add this to the main feed too?
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-2"
+                onClick={() => {
+                  // TODO: Add to main feed functionality
+                  console.log('Add to main feed')
+                }}
+              >
+                Add to Public Feed
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <BottomNavigation />
