@@ -179,7 +179,10 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
     setIsSelectionStable(true)
   }, [lyrics])
 
-  // Debounced selection change handler
+  // Track if we're likely on a touch device
+  const isTouchDevice = useRef(false)
+
+  // Debounced selection change handler (primarily for mobile)
   const handleSelectionChange = useCallback(() => {
     // Clear any existing timeout
     if (selectionTimeoutRef.current) {
@@ -198,10 +201,13 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
     // Reset stable state while selection is changing
     setIsSelectionStable(false)
     
-    // Set a longer timeout to detect when selection stops changing
-    selectionTimeoutRef.current = setTimeout(() => {
-      handleStableSelection()
-    }, 1500) // 1.5 seconds for natural selection adjustment
+    // Only use long timeout for touch devices (mobile gets the stable selection flow)
+    // Desktop users get immediate response via mouse events
+    if (isTouchDevice.current) {
+      selectionTimeoutRef.current = setTimeout(() => {
+        handleStableSelection()
+      }, 1500) // 1.5 seconds for natural mobile selection adjustment
+    }
   }, [handleStableSelection])
 
   // Create highlight from stable selection
@@ -225,6 +231,56 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
       setStableSelection(null)
     }
   }, [stableSelection, lyrics])
+
+  // Desktop mouse selection handler (immediate response)
+  const handleMouseSelection = useCallback(() => {
+    const selection = window.getSelection()
+    if (!selection || !selection.toString().trim() || !lyrics) return
+
+    const selectedText = selection.toString().trim()
+    if (selectedText.length < 3) return
+
+    // Check if selection is within lyrics
+    if (!lyricsRef.current) return
+    const range = selection.getRangeAt(0)
+    if (!lyricsRef.current.contains(range.commonAncestorContainer)) return
+
+    // Find the text in lyrics and create pending highlight immediately (desktop)
+    const startIndex = lyrics.indexOf(selectedText)
+    if (startIndex !== -1) {
+      const newPendingHighlight: HighlightedSection = {
+        id: 'pending-highlight',
+        text: selectedText,
+        startIndex,
+        endIndex: startIndex + selectedText.length,
+      }
+      
+      // Clear browser selection and show our styled highlight + action sheet
+      selection.removeAllRanges()
+      setPendingHighlight(newPendingHighlight)
+      setSelectedHighlight(newPendingHighlight)
+      setIsSelectionStable(false)
+      setStableSelection(null)
+    }
+  }, [lyrics])
+
+  // Mouse event handler for desktop
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    // Don't interfere with existing highlights
+    if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
+      return
+    }
+
+    // Short delay for desktop to ensure selection is complete
+    setTimeout(() => {
+      handleMouseSelection()
+    }, 50)
+  }, [handleMouseSelection])
+
+  // Touch detection for mobile vs desktop behavior
+  const handleTouchStart = useCallback(() => {
+    isTouchDevice.current = true
+  }, [])
 
   // Simple click handler for existing highlights
   const handleLyricsInteraction = useCallback((e: React.MouseEvent) => {
@@ -523,6 +579,8 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
             <div
               ref={lyricsRef}
               className="text-2xl leading-loose lyrics-selectable cursor-text text-center max-w-none relative"
+              onMouseUp={handleMouseUp}
+              onTouchStart={handleTouchStart}
               onClick={handleLyricsInteraction}
               style={{ 
                 lineHeight: "2.8"

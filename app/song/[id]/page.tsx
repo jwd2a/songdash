@@ -98,7 +98,7 @@ export default function SongDetailPage() {
     setIsSelectionStable(true)
   }
 
-  // Debounced selection change handler
+  // Debounced selection change handler (primarily for mobile)
   const handleSelectionChange = () => {
     // Clear any existing timeout
     if (selectionTimeoutRef.current) {
@@ -117,11 +117,17 @@ export default function SongDetailPage() {
     // Reset stable state while selection is changing
     setIsSelectionStable(false)
     
-    // Set a longer timeout to detect when selection stops changing
-    selectionTimeoutRef.current = setTimeout(() => {
-      handleStableSelection()
-    }, 1500) // 1.5 seconds for natural selection adjustment
+    // Only use long timeout for touch devices (mobile gets the stable selection flow)
+    // Desktop users get immediate response via mouse events
+    if (isTouchDevice.current) {
+      selectionTimeoutRef.current = setTimeout(() => {
+        handleStableSelection()
+      }, 1500) // 1.5 seconds for natural mobile selection adjustment
+    }
   }
+
+  // Track if we're likely on a touch device
+  const isTouchDevice = useRef(false)
 
   // Create highlight from stable selection
   const createHighlightFromSelection = () => {
@@ -144,6 +150,59 @@ export default function SongDetailPage() {
       setIsSelectionStable(false)
       setStableSelection(null)
     }
+  }
+
+  // Desktop mouse selection handler (immediate response)
+  const handleMouseSelection = () => {
+    const selection = window.getSelection()
+    if (!selection || !selection.toString().trim() || !song?.lyrics) return
+
+    const selectedText = selection.toString().trim()
+    if (selectedText.length < 3) return
+
+    // Check if selection is within lyrics
+    const lyricsContainer = document.querySelector('[data-lyrics-container]')
+    if (!lyricsContainer) return
+
+    const range = selection.getRangeAt(0)
+    if (!lyricsContainer.contains(range.commonAncestorContainer)) return
+
+    // Find the text in lyrics and create pending highlight immediately (desktop)
+    const startIndex = song.lyrics.indexOf(selectedText)
+    if (startIndex !== -1) {
+      const newPendingHighlight: HighlightedSection = {
+        id: 'pending-highlight',
+        text: selectedText,
+        startIndex,
+        endIndex: startIndex + selectedText.length,
+        createdAt: new Date().toISOString()
+      }
+      
+      // Clear browser selection and show our styled highlight + action sheet
+      selection.removeAllRanges()
+      setPendingHighlight(newPendingHighlight)
+      setSelectedText(selectedText)
+      setIsSelectionStable(false)
+      setStableSelection(null)
+    }
+  }
+
+  // Mouse event handler for desktop
+  const handleMouseUp = (e: React.MouseEvent) => {
+    // Don't interfere with existing highlights
+    if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
+      return
+    }
+
+    // Short delay for desktop to ensure selection is complete
+    setTimeout(() => {
+      handleMouseSelection()
+    }, 50)
+  }
+
+  // Touch detection for mobile vs desktop behavior
+  const handleTouchStart = () => {
+    isTouchDevice.current = true
   }
 
   // Handle clicks on lyrics area
@@ -436,6 +495,8 @@ export default function SongDetailPage() {
           {song.lyrics ? (
             <div 
               className="text-gray-800 leading-relaxed lyrics-selectable cursor-text relative"
+              onMouseUp={handleMouseUp}
+              onTouchStart={handleTouchStart}
               onClick={handleLyricsClick}
               data-lyrics-container
               style={{ 
