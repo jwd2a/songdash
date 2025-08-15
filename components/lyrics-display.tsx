@@ -169,6 +169,14 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
     }
 
     const selectedText = selection.toString().trim()
+    
+    console.log('🔍 Selection change detected:', {
+      text: selectedText,
+      length: selectedText.length,
+      hasLineBreaks: selectedText.includes('\n'),
+      rangeCount: selection.rangeCount
+    })
+    
     if (selectedText.length < 3) {
       setCurrentSelection("")
       setShowAddButton(false)
@@ -177,6 +185,7 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
 
     // Check if selection is within our lyrics
     if (!lyricsRef.current) {
+      console.log('❌ No lyrics ref')
       setCurrentSelection("")
       setShowAddButton(false)
       return
@@ -184,17 +193,28 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
 
     try {
       const range = selection.getRangeAt(0)
-      if (!lyricsRef.current.contains(range.commonAncestorContainer)) {
+      const isInLyrics = lyricsRef.current.contains(range.commonAncestorContainer)
+      
+      console.log('🔍 Range check:', {
+        commonAncestor: range.commonAncestorContainer.nodeName,
+        isInLyrics,
+        startContainer: range.startContainer.nodeName,
+        endContainer: range.endContainer.nodeName
+      })
+      
+      if (!isInLyrics) {
         setCurrentSelection("")
         setShowAddButton(false)
         return
       }
 
       // Valid selection within lyrics - show the button
+      console.log('✅ Showing button for selection:', selectedText.substring(0, 50))
       setCurrentSelection(selectedText)
       setShowAddButton(true)
     } catch (error) {
       // Invalid range - hide button
+      console.log('❌ Range error:', error)
       setCurrentSelection("")
       setShowAddButton(false)
     }
@@ -204,7 +224,41 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
   const createHighlightFromSelection = useCallback(() => {
     if (!currentSelection || !lyrics) return
 
-    const startIndex = lyrics.indexOf(currentSelection)
+    console.log('🔍 Multi-line selection debug:', {
+      originalSelection: currentSelection,
+      selectionLength: currentSelection.length,
+      hasLineBreaks: currentSelection.includes('\n'),
+      firstTry: lyrics.indexOf(currentSelection)
+    })
+
+    // Try exact match first
+    let startIndex = lyrics.indexOf(currentSelection)
+    
+    // If exact match fails, try normalizing whitespace and line breaks
+    if (startIndex === -1 && currentSelection.includes('\n')) {
+      // For multi-line selections, try different line break patterns
+      const variants = [
+        currentSelection.replace(/\n/g, '\r\n'),  // Try Windows line breaks
+        currentSelection.replace(/\n/g, ' '),     // Try spaces instead of breaks
+        currentSelection.replace(/\s+/g, ' ')     // Normalize all whitespace
+      ]
+      
+      for (const variant of variants) {
+        startIndex = lyrics.indexOf(variant)
+        if (startIndex !== -1) {
+          console.log('🔍 Found match with variant:', variant.substring(0, 30))
+          break
+        }
+      }
+    }
+
+    // Fallback: try to find the first few words of the selection
+    if (startIndex === -1) {
+      const firstWords = currentSelection.split(/\s+/).slice(0, 3).join(' ')
+      startIndex = lyrics.indexOf(firstWords)
+      console.log('🔍 Fallback search for first words:', firstWords, 'found at:', startIndex)
+    }
+
     if (startIndex !== -1) {
       const newPendingHighlight: HighlightedSection = {
         id: 'pending-highlight',
@@ -213,12 +267,16 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
         endIndex: startIndex + currentSelection.length,
       }
       
+      console.log('✅ Created highlight:', newPendingHighlight)
+      
       // Clear browser selection and show our styled highlight + action sheet
       window.getSelection()?.removeAllRanges()
       setPendingHighlight(newPendingHighlight)
       setSelectedHighlight(newPendingHighlight)
       setCurrentSelection("")
       setShowAddButton(false)
+    } else {
+      console.log('❌ Could not find selection in lyrics')
     }
   }, [currentSelection, lyrics])
 
