@@ -89,41 +89,7 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
     fetchLyrics()
   }, [song.artist, song.title])
 
-  // Add demo highlights when lyrics load so you can see the visual improvements
-  useEffect(() => {
-    if (lyrics && highlights.length === 0) {
-      const demoHighlights = [
-        {
-          id: "demo-1",
-          text: "love",
-          note: "This word always hits different in songs 💕",
-          startIndex: lyrics.toLowerCase().indexOf("love"),
-          endIndex: lyrics.toLowerCase().indexOf("love") + 4,
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: "demo-2", 
-          text: "heart",
-          note: "The emotion in this line gives me chills ❤️",  
-          startIndex: lyrics.toLowerCase().indexOf("heart"),
-          endIndex: lyrics.toLowerCase().indexOf("heart") + 5,
-          createdAt: new Date().toISOString()
-        },
-        {
-          id: "demo-3",
-          text: "dream",
-          note: "Dreams are what music is made of ✨",
-          startIndex: lyrics.toLowerCase().indexOf("dream"),
-          endIndex: lyrics.toLowerCase().indexOf("dream") + 5,
-          createdAt: new Date().toISOString()
-        }
-      ].filter(highlight => highlight.startIndex !== -1) // Only add if the words exist
 
-      if (demoHighlights.length > 0) {
-        setHighlights(demoHighlights)
-      }
-    }
-  }, [lyrics, highlights.length])
 
   const handleTextSelection = useCallback(() => {
     const selection = window.getSelection()
