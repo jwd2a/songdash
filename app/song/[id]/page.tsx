@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { ArrowLeft, CheckCircle } from "lucide-react"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import { Button } from "@/components/ui/button"
@@ -70,54 +70,142 @@ export default function SongDetailPage() {
     loadSong()
   }, [params.id])
 
-  // Simple mouseup handler to detect completed selection
-  const handleMouseUp = (e: React.MouseEvent) => {
-    // Don't interfere with existing highlights
-    if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
+  // State for current text selection
+  const [currentSelection, setCurrentSelection] = useState<string>("")
+  const [showAddButton, setShowAddButton] = useState(false)
+
+  // Simple selection change handler - show button when there's a valid selection
+  const handleSelectionChange = () => {
+    const selection = window.getSelection()
+    
+    // If no selection, hide button
+    if (!selection || !selection.toString().trim()) {
+      setCurrentSelection("")
+      setShowAddButton(false)
       return
     }
 
-    // Small delay to ensure selection is complete
-    setTimeout(() => {
-      const selection = window.getSelection()
-      if (!selection || !selection.toString().trim() || !song?.lyrics) return
+    const selectedText = selection.toString().trim()
+    
+    console.log('🔍 Selection change detected:', {
+      text: selectedText,
+      length: selectedText.length,
+      hasLineBreaks: selectedText.includes('\n'),
+      rangeCount: selection.rangeCount
+    })
+    
+    if (selectedText.length < 3) {
+      setCurrentSelection("")
+      setShowAddButton(false)
+      return
+    }
 
-      const selectedText = selection.toString().trim()
-      if (selectedText.length < 3) return
+    // Check if selection is within our lyrics
+    const lyricsContainer = document.querySelector('[data-lyrics-container]')
+    if (!lyricsContainer) {
+      console.log('❌ No lyrics container')
+      setCurrentSelection("")
+      setShowAddButton(false)
+      return
+    }
 
-      // Check if selection is within lyrics
-      const lyricsContainer = document.querySelector('[data-lyrics-container]')
-      if (!lyricsContainer) return
-
+    try {
       const range = selection.getRangeAt(0)
-      if (!lyricsContainer.contains(range.commonAncestorContainer)) return
-
-      // Find the text in lyrics and create pending highlight
-      const startIndex = song.lyrics.indexOf(selectedText)
-      if (startIndex !== -1) {
-        const newPendingHighlight: HighlightedSection = {
-          id: 'pending-highlight',
-          text: selectedText,
-          startIndex,
-          endIndex: startIndex + selectedText.length,
-          createdAt: new Date().toISOString()
-        }
-        
-        // Clear browser selection and show our styled highlight + action sheet
-        selection.removeAllRanges()
-        setPendingHighlight(newPendingHighlight)
-        setSelectedText(selectedText)
+      const isInLyrics = lyricsContainer.contains(range.commonAncestorContainer)
+      
+      console.log('🔍 Range check:', {
+        commonAncestor: range.commonAncestorContainer.nodeName,
+        isInLyrics,
+        startContainer: range.startContainer.nodeName,
+        endContainer: range.endContainer.nodeName
+      })
+      
+      if (!isInLyrics) {
+        setCurrentSelection("")
+        setShowAddButton(false)
+        return
       }
-    }, 100)
+
+      // Valid selection within lyrics - show the button
+      console.log('✅ Showing button for selection:', selectedText.substring(0, 50))
+      setCurrentSelection(selectedText)
+      setShowAddButton(true)
+    } catch (error) {
+      // Invalid range - hide button
+      console.log('❌ Range error:', error)
+      setCurrentSelection("")
+      setShowAddButton(false)
+    }
   }
 
-  // Close panels when clicking outside highlights
+  // Create highlight from current selection
+  const createHighlightFromSelection = () => {
+    if (!currentSelection || !song?.lyrics) return
+
+    console.log('🔍 Multi-line selection debug:', {
+      originalSelection: currentSelection,
+      selectionLength: currentSelection.length,
+      hasLineBreaks: currentSelection.includes('\n'),
+      firstTry: song.lyrics.indexOf(currentSelection)
+    })
+
+    // Try exact match first
+    let startIndex = song.lyrics.indexOf(currentSelection)
+    
+    // If exact match fails, try normalizing whitespace and line breaks
+    if (startIndex === -1 && currentSelection.includes('\n')) {
+      // For multi-line selections, try different line break patterns
+      const variants = [
+        currentSelection.replace(/\n/g, '\r\n'),  // Try Windows line breaks
+        currentSelection.replace(/\n/g, ' '),     // Try spaces instead of breaks
+        currentSelection.replace(/\s+/g, ' ')     // Normalize all whitespace
+      ]
+      
+      for (const variant of variants) {
+        startIndex = song.lyrics.indexOf(variant)
+        if (startIndex !== -1) {
+          console.log('🔍 Found match with variant:', variant.substring(0, 30))
+          break
+        }
+      }
+    }
+
+    // Fallback: try to find the first few words of the selection
+    if (startIndex === -1) {
+      const firstWords = currentSelection.split(/\s+/).slice(0, 3).join(' ')
+      startIndex = song.lyrics.indexOf(firstWords)
+      console.log('🔍 Fallback search for first words:', firstWords, 'found at:', startIndex)
+    }
+
+    if (startIndex !== -1) {
+      const newPendingHighlight: HighlightedSection = {
+        id: 'pending-highlight',
+        text: currentSelection,
+        startIndex,
+        endIndex: startIndex + currentSelection.length,
+        createdAt: new Date().toISOString()
+      }
+      
+      console.log('✅ Created highlight:', newPendingHighlight)
+      
+      // Clear browser selection and show our styled highlight + action sheet
+      window.getSelection()?.removeAllRanges()
+      setPendingHighlight(newPendingHighlight)
+      setSelectedText(currentSelection)
+      setCurrentSelection("")
+      setShowAddButton(false)
+    } else {
+      console.log('❌ Could not find selection in lyrics')
+    }
+  }
+
+  // Handle clicks on lyrics area
   const handleLyricsClick = (e: React.MouseEvent) => {
     if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
       return
     }
     
-    // Clear states when clicking elsewhere
+    // Clear states when clicking elsewhere (but don't interfere with native selection)
     setSelectedText("")
     setActivatedHighlight(null)
     setPendingHighlight(null)
@@ -141,6 +229,14 @@ export default function SongDetailPage() {
     setSelectedText("")
     setPendingHighlight(null)
   }
+
+  // Simple selection change listener - works on both desktop and mobile
+  useEffect(() => {
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange)
+    }
+  }, [])
 
   const renderLyricsWithHighlights = () => {
     if (!song?.lyrics) return null
@@ -187,32 +283,77 @@ export default function SongDetailPage() {
         }
       }
 
-      elements.push(
-        <mark
-          key={`highlight-${highlight.id}`}
-          className={`
-            px-3 py-2 cursor-pointer transition-all duration-300 ease-in-out relative
-            ${isActivated 
-              ? 'rounded-3xl shadow-lg transform -translate-y-1 z-10' 
-              : 'rounded-2xl hover:shadow-md hover:-translate-y-0.5'
-            }
-            ${isActivated && hasNote
-              ? 'bg-pink-600 text-white shadow-pink-200'
-              : isActivated && !hasNote
-              ? 'bg-violet-600 text-white shadow-violet-200'
-              : (hasNote || isPendingHighlight)
-              ? 'bg-pink-200 hover:bg-pink-300 text-gray-800'
-              : 'bg-violet-200 hover:bg-violet-300 text-gray-800'
-            }
-          `}
-          onClick={handleHighlightClick}
-          style={{
-            transformOrigin: 'center',
-          }}
-        >
-          {highlightedText}
-        </mark>,
-      )
+      // Check if this highlight spans multiple lines
+      const highlightLines = highlightedText.split('\n')
+      
+      if (highlightLines.length > 1) {
+        // Multi-line highlight: render each line as a separate highlight segment
+        highlightLines.forEach((line, lineIndex) => {
+          if (lineIndex > 0) {
+            elements.push(<br key={`br-multiline-${keyCounter++}`} />)
+          }
+          
+          if (line.trim()) { // Only highlight non-empty lines
+            elements.push(
+              <mark
+                key={`highlight-${highlight.id}-line-${lineIndex}`}
+                className={`
+                  highlight-mark inline-block px-3 py-2 cursor-pointer transition-all duration-300 ease-in-out relative
+                  ${isActivated 
+                    ? 'rounded-3xl shadow-lg transform -translate-y-1 z-10' 
+                    : 'rounded-2xl hover:shadow-md hover:-translate-y-0.5'
+                  }
+                  ${isActivated && hasNote
+                    ? 'bg-pink-600 text-white shadow-pink-200'
+                    : isActivated && !hasNote
+                    ? 'bg-violet-600 text-white shadow-violet-200'
+                    : (hasNote || isPendingHighlight)
+                    ? 'bg-pink-200 hover:bg-pink-300 text-gray-800'
+                    : 'bg-violet-200 hover:bg-violet-300 text-gray-800'
+                  }
+                `}
+                onClick={handleHighlightClick}
+                style={{
+                  transformOrigin: 'center',
+                }}
+              >
+                {line}
+              </mark>
+            )
+          } else if (line === '') {
+            // Empty line in middle of highlight - just add the text
+            elements.push(<span key={`empty-line-${keyCounter++}`}>{line}</span>)
+          }
+        })
+      } else {
+        // Single-line highlight: render as before
+        elements.push(
+          <mark
+            key={`highlight-${highlight.id}`}
+            className={`
+              highlight-mark px-3 py-2 cursor-pointer transition-all duration-300 ease-in-out relative
+              ${isActivated 
+                ? 'rounded-3xl shadow-lg transform -translate-y-1 z-10' 
+                : 'rounded-2xl hover:shadow-md hover:-translate-y-0.5'
+              }
+              ${isActivated && hasNote
+                ? 'bg-pink-600 text-white shadow-pink-200'
+                : isActivated && !hasNote
+                ? 'bg-violet-600 text-white shadow-violet-200'
+                : (hasNote || isPendingHighlight)
+                ? 'bg-pink-200 hover:bg-pink-300 text-gray-800'
+                : 'bg-violet-200 hover:bg-violet-300 text-gray-800'
+              }
+            `}
+            onClick={handleHighlightClick}
+            style={{
+              transformOrigin: 'center',
+            }}
+          >
+            {highlightedText}
+          </mark>,
+        )
+      }
 
       lastIndex = highlight.endIndex
     })
@@ -386,11 +527,12 @@ export default function SongDetailPage() {
           <h3 className="font-semibold mb-3 text-gray-900">Lyrics</h3>
           {song.lyrics ? (
             <div 
-              className="text-gray-800 leading-relaxed select-text cursor-text"
-              onMouseUp={handleMouseUp}
+              className="lyrics-container text-gray-800 leading-relaxed lyrics-selectable cursor-text relative"
               onClick={handleLyricsClick}
               data-lyrics-container
-              style={{ userSelect: "text", lineHeight: "2.2" }}
+              style={{ 
+                lineHeight: "2.2"
+              }}
             >
               {renderLyricsWithHighlights()}
             </div>
@@ -402,6 +544,19 @@ export default function SongDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Add Note button - shows when there's a valid selection */}
+        {showAddButton && currentSelection && (
+          <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in-0 zoom-in-95 duration-200">
+            <Button
+              onClick={createHighlightFromSelection}
+              size="lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-xl border border-blue-500 rounded-full px-6 py-3"
+            >
+              💭 Add Note to "{currentSelection.length > 20 ? currentSelection.substring(0, 20) + '...' : currentSelection}"
+            </Button>
+          </div>
+        )}
 
 
 
