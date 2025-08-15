@@ -70,139 +70,75 @@ export default function SongDetailPage() {
     loadSong()
   }, [params.id])
 
-  // State for managing selection flow
-  const [isSelectionStable, setIsSelectionStable] = useState(false)
-  const [stableSelection, setStableSelection] = useState<{text: string, range: Range} | null>(null)
-  const selectionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // State for current text selection
+  const [currentSelection, setCurrentSelection] = useState<string>("")
+  const [showAddButton, setShowAddButton] = useState(false)
 
-  // Handle stable text selection (after user finishes adjusting)
-  const handleStableSelection = () => {
-    const selection = window.getSelection()
-    if (!selection || !selection.toString().trim() || !song?.lyrics) return
-
-    const selectedText = selection.toString().trim()
-    if (selectedText.length < 3) return
-
-    // Check if selection is within lyrics
-    const lyricsContainer = document.querySelector('[data-lyrics-container]')
-    if (!lyricsContainer) return
-
-    const range = selection.getRangeAt(0)
-    if (!lyricsContainer.contains(range.commonAncestorContainer)) return
-
-    // Store stable selection info
-    setStableSelection({
-      text: selectedText,
-      range: range.cloneRange()
-    })
-    setIsSelectionStable(true)
-  }
-
-  // Debounced selection change handler (primarily for mobile)
+  // Simple selection change handler - show button when there's a valid selection
   const handleSelectionChange = () => {
-    // Clear any existing timeout
-    if (selectionTimeoutRef.current) {
-      clearTimeout(selectionTimeoutRef.current)
-    }
-
     const selection = window.getSelection()
     
-    // If no selection, clear states
+    // If no selection, hide button
     if (!selection || !selection.toString().trim()) {
-      setIsSelectionStable(false)
-      setStableSelection(null)
+      setCurrentSelection("")
+      setShowAddButton(false)
       return
     }
 
-    // Reset stable state while selection is changing
-    setIsSelectionStable(false)
-    
-    // Only use long timeout for touch devices (mobile gets the stable selection flow)
-    // Desktop users get immediate response via mouse events
-    if (isTouchDevice.current) {
-      selectionTimeoutRef.current = setTimeout(() => {
-        handleStableSelection()
-      }, 1500) // 1.5 seconds for natural mobile selection adjustment
+    const selectedText = selection.toString().trim()
+    if (selectedText.length < 3) {
+      setCurrentSelection("")
+      setShowAddButton(false)
+      return
+    }
+
+    // Check if selection is within our lyrics
+    const lyricsContainer = document.querySelector('[data-lyrics-container]')
+    if (!lyricsContainer) {
+      setCurrentSelection("")
+      setShowAddButton(false)
+      return
+    }
+
+    try {
+      const range = selection.getRangeAt(0)
+      if (!lyricsContainer.contains(range.commonAncestorContainer)) {
+        setCurrentSelection("")
+        setShowAddButton(false)
+        return
+      }
+
+      // Valid selection within lyrics - show the button
+      setCurrentSelection(selectedText)
+      setShowAddButton(true)
+    } catch (error) {
+      // Invalid range - hide button
+      setCurrentSelection("")
+      setShowAddButton(false)
     }
   }
 
-  // Track if we're likely on a touch device
-  const isTouchDevice = useRef(false)
-
-  // Create highlight from stable selection
+  // Create highlight from current selection
   const createHighlightFromSelection = () => {
-    if (!stableSelection || !song?.lyrics) return
+    if (!currentSelection || !song?.lyrics) return
 
-    const startIndex = song.lyrics.indexOf(stableSelection.text)
+    const startIndex = song.lyrics.indexOf(currentSelection)
     if (startIndex !== -1) {
       const newPendingHighlight: HighlightedSection = {
         id: 'pending-highlight',
-        text: stableSelection.text,
+        text: currentSelection,
         startIndex,
-        endIndex: startIndex + stableSelection.text.length,
+        endIndex: startIndex + currentSelection.length,
         createdAt: new Date().toISOString()
       }
       
       // Clear browser selection and show our styled highlight + action sheet
       window.getSelection()?.removeAllRanges()
       setPendingHighlight(newPendingHighlight)
-      setSelectedText(stableSelection.text)
-      setIsSelectionStable(false)
-      setStableSelection(null)
+      setSelectedText(currentSelection)
+      setCurrentSelection("")
+      setShowAddButton(false)
     }
-  }
-
-  // Desktop mouse selection handler (immediate response)
-  const handleMouseSelection = () => {
-    const selection = window.getSelection()
-    if (!selection || !selection.toString().trim() || !song?.lyrics) return
-
-    const selectedText = selection.toString().trim()
-    if (selectedText.length < 3) return
-
-    // Check if selection is within lyrics
-    const lyricsContainer = document.querySelector('[data-lyrics-container]')
-    if (!lyricsContainer) return
-
-    const range = selection.getRangeAt(0)
-    if (!lyricsContainer.contains(range.commonAncestorContainer)) return
-
-    // Find the text in lyrics and create pending highlight immediately (desktop)
-    const startIndex = song.lyrics.indexOf(selectedText)
-    if (startIndex !== -1) {
-      const newPendingHighlight: HighlightedSection = {
-        id: 'pending-highlight',
-        text: selectedText,
-        startIndex,
-        endIndex: startIndex + selectedText.length,
-        createdAt: new Date().toISOString()
-      }
-      
-      // Clear browser selection and show our styled highlight + action sheet
-      selection.removeAllRanges()
-      setPendingHighlight(newPendingHighlight)
-      setSelectedText(selectedText)
-      setIsSelectionStable(false)
-      setStableSelection(null)
-    }
-  }
-
-  // Mouse event handler for desktop
-  const handleMouseUp = (e: React.MouseEvent) => {
-    // Don't interfere with existing highlights
-    if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
-      return
-    }
-
-    // Short delay for desktop to ensure selection is complete
-    setTimeout(() => {
-      handleMouseSelection()
-    }, 50)
-  }
-
-  // Touch detection for mobile vs desktop behavior
-  const handleTouchStart = () => {
-    isTouchDevice.current = true
   }
 
   // Handle clicks on lyrics area
@@ -211,12 +147,10 @@ export default function SongDetailPage() {
       return
     }
     
-    // Clear states when clicking elsewhere
+    // Clear states when clicking elsewhere (but don't interfere with native selection)
     setSelectedText("")
     setActivatedHighlight(null)
     setPendingHighlight(null)
-    setIsSelectionStable(false)
-    setStableSelection(null)
   }
 
   const addHighlight = (note: string) => {
@@ -238,15 +172,11 @@ export default function SongDetailPage() {
     setPendingHighlight(null)
   }
 
-  // Selection change listener for natural mobile selection
+  // Simple selection change listener - works on both desktop and mobile
   useEffect(() => {
     document.addEventListener('selectionchange', handleSelectionChange)
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange)
-      // Clean up any pending timeout
-      if (selectionTimeoutRef.current) {
-        clearTimeout(selectionTimeoutRef.current)
-      }
     }
   }, [])
 
@@ -495,8 +425,6 @@ export default function SongDetailPage() {
           {song.lyrics ? (
             <div 
               className="text-gray-800 leading-relaxed lyrics-selectable cursor-text relative"
-              onMouseUp={handleMouseUp}
-              onTouchStart={handleTouchStart}
               onClick={handleLyricsClick}
               data-lyrics-container
               style={{ 
@@ -504,26 +432,6 @@ export default function SongDetailPage() {
               }}
             >
               {renderLyricsWithHighlights()}
-              
-              {/* Add Note button for stable selections */}
-              {isSelectionStable && stableSelection && (
-                <div className="fixed z-50 animate-in fade-in-0 zoom-in-95 duration-200">
-                  <Button
-                    onClick={createHighlightFromSelection}
-                    size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg border border-blue-500"
-                    style={{
-                      position: 'absolute',
-                      left: '50%',
-                      top: '50%',
-                      transform: 'translate(-50%, -120px)',
-                      zIndex: 9999
-                    }}
-                  >
-                    💭 Add Note
-                  </Button>
-                </div>
-              )}
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
@@ -533,6 +441,19 @@ export default function SongDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Add Note button - shows when there's a valid selection */}
+        {showAddButton && currentSelection && (
+          <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in-0 zoom-in-95 duration-200">
+            <Button
+              onClick={createHighlightFromSelection}
+              size="lg"
+              className="bg-blue-600 hover:bg-blue-700 text-white shadow-xl border border-blue-500 rounded-full px-6 py-3"
+            >
+              💭 Add Note to "{currentSelection.length > 20 ? currentSelection.substring(0, 20) + '...' : currentSelection}"
+            </Button>
+          </div>
+        )}
 
 
 

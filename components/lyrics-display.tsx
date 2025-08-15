@@ -153,134 +153,74 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
     // Don't add to highlights yet - wait for user to add note
   }, [])
 
-  // State for managing selection flow
-  const [isSelectionStable, setIsSelectionStable] = useState(false)
-  const [stableSelection, setStableSelection] = useState<{text: string, range: Range} | null>(null)
-  const selectionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // State for current text selection
+  const [currentSelection, setCurrentSelection] = useState<string>("")
+  const [showAddButton, setShowAddButton] = useState(false)
 
-  // Handle stable text selection (after user finishes adjusting)
-  const handleStableSelection = useCallback(() => {
-    const selection = window.getSelection()
-    if (!selection || !selection.toString().trim() || !lyrics) return
-
-    const selectedText = selection.toString().trim()
-    if (selectedText.length < 3) return
-
-    // Check if selection is within lyrics
-    if (!lyricsRef.current) return
-    const range = selection.getRangeAt(0)
-    if (!lyricsRef.current.contains(range.commonAncestorContainer)) return
-
-    // Store stable selection info
-    setStableSelection({
-      text: selectedText,
-      range: range.cloneRange()
-    })
-    setIsSelectionStable(true)
-  }, [lyrics])
-
-  // Track if we're likely on a touch device
-  const isTouchDevice = useRef(false)
-
-  // Debounced selection change handler (primarily for mobile)
+  // Simple selection change handler - show button when there's a valid selection
   const handleSelectionChange = useCallback(() => {
-    // Clear any existing timeout
-    if (selectionTimeoutRef.current) {
-      clearTimeout(selectionTimeoutRef.current)
-    }
-
     const selection = window.getSelection()
     
-    // If no selection, clear states
+    // If no selection, hide button
     if (!selection || !selection.toString().trim()) {
-      setIsSelectionStable(false)
-      setStableSelection(null)
+      setCurrentSelection("")
+      setShowAddButton(false)
       return
     }
 
-    // Reset stable state while selection is changing
-    setIsSelectionStable(false)
-    
-    // Only use long timeout for touch devices (mobile gets the stable selection flow)
-    // Desktop users get immediate response via mouse events
-    if (isTouchDevice.current) {
-      selectionTimeoutRef.current = setTimeout(() => {
-        handleStableSelection()
-      }, 1500) // 1.5 seconds for natural mobile selection adjustment
+    const selectedText = selection.toString().trim()
+    if (selectedText.length < 3) {
+      setCurrentSelection("")
+      setShowAddButton(false)
+      return
     }
-  }, [handleStableSelection])
 
-  // Create highlight from stable selection
+    // Check if selection is within our lyrics
+    if (!lyricsRef.current) {
+      setCurrentSelection("")
+      setShowAddButton(false)
+      return
+    }
+
+    try {
+      const range = selection.getRangeAt(0)
+      if (!lyricsRef.current.contains(range.commonAncestorContainer)) {
+        setCurrentSelection("")
+        setShowAddButton(false)
+        return
+      }
+
+      // Valid selection within lyrics - show the button
+      setCurrentSelection(selectedText)
+      setShowAddButton(true)
+    } catch (error) {
+      // Invalid range - hide button
+      setCurrentSelection("")
+      setShowAddButton(false)
+    }
+  }, [])
+
+  // Create highlight from current selection
   const createHighlightFromSelection = useCallback(() => {
-    if (!stableSelection || !lyrics) return
+    if (!currentSelection || !lyrics) return
 
-    const startIndex = lyrics.indexOf(stableSelection.text)
+    const startIndex = lyrics.indexOf(currentSelection)
     if (startIndex !== -1) {
       const newPendingHighlight: HighlightedSection = {
         id: 'pending-highlight',
-        text: stableSelection.text,
+        text: currentSelection,
         startIndex,
-        endIndex: startIndex + stableSelection.text.length,
+        endIndex: startIndex + currentSelection.length,
       }
       
       // Clear browser selection and show our styled highlight + action sheet
       window.getSelection()?.removeAllRanges()
       setPendingHighlight(newPendingHighlight)
       setSelectedHighlight(newPendingHighlight)
-      setIsSelectionStable(false)
-      setStableSelection(null)
+      setCurrentSelection("")
+      setShowAddButton(false)
     }
-  }, [stableSelection, lyrics])
-
-  // Desktop mouse selection handler (immediate response)
-  const handleMouseSelection = useCallback(() => {
-    const selection = window.getSelection()
-    if (!selection || !selection.toString().trim() || !lyrics) return
-
-    const selectedText = selection.toString().trim()
-    if (selectedText.length < 3) return
-
-    // Check if selection is within lyrics
-    if (!lyricsRef.current) return
-    const range = selection.getRangeAt(0)
-    if (!lyricsRef.current.contains(range.commonAncestorContainer)) return
-
-    // Find the text in lyrics and create pending highlight immediately (desktop)
-    const startIndex = lyrics.indexOf(selectedText)
-    if (startIndex !== -1) {
-      const newPendingHighlight: HighlightedSection = {
-        id: 'pending-highlight',
-        text: selectedText,
-        startIndex,
-        endIndex: startIndex + selectedText.length,
-      }
-      
-      // Clear browser selection and show our styled highlight + action sheet
-      selection.removeAllRanges()
-      setPendingHighlight(newPendingHighlight)
-      setSelectedHighlight(newPendingHighlight)
-      setIsSelectionStable(false)
-      setStableSelection(null)
-    }
-  }, [lyrics])
-
-  // Mouse event handler for desktop
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
-    // Don't interfere with existing highlights
-    if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
-      return
-    }
-
-    // Short delay for desktop to ensure selection is complete
-    setTimeout(() => {
-      handleMouseSelection()
-    }, 50)
-  }, [handleMouseSelection])
-
-  // Touch detection for mobile vs desktop behavior
-  const handleTouchStart = useCallback(() => {
-    isTouchDevice.current = true
-  }, [])
+  }, [currentSelection, lyrics])
 
   // Simple click handler for existing highlights
   const handleLyricsInteraction = useCallback((e: React.MouseEvent) => {
@@ -289,13 +229,11 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
       return
     }
     
-    // Clear pending states when clicking elsewhere
+    // Clear pending states when clicking elsewhere (but don't interfere with native selection)
     setSelectedHighlight(null)
     setActivatedHighlight(null)
     setPendingHighlight(null)
     setNoteText("")
-    setIsSelectionStable(false)
-    setStableSelection(null)
   }, [])
 
   const handleLyricsClick = useCallback((e: React.MouseEvent) => {
@@ -400,15 +338,11 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
     }
   }, [])
 
-  // Selection change listener for natural mobile selection
+  // Simple selection change listener - works on both desktop and mobile
   useEffect(() => {
     document.addEventListener('selectionchange', handleSelectionChange)
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange)
-      // Clean up any pending timeout
-      if (selectionTimeoutRef.current) {
-        clearTimeout(selectionTimeoutRef.current)
-      }
     }
   }, [handleSelectionChange])
 
@@ -579,35 +513,26 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
             <div
               ref={lyricsRef}
               className="text-2xl leading-loose lyrics-selectable cursor-text text-center max-w-none relative"
-              onMouseUp={handleMouseUp}
-              onTouchStart={handleTouchStart}
               onClick={handleLyricsInteraction}
               style={{ 
                 lineHeight: "2.8"
               }}
             >
               {renderLyricsWithHighlights()}
-              
-              {/* Add Note button for stable selections */}
-              {isSelectionStable && stableSelection && (
-                <div className="fixed z-50 animate-in fade-in-0 zoom-in-95 duration-200">
-                  <Button
-                    onClick={createHighlightFromSelection}
-                    size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg border border-blue-500"
-                    style={{
-                      position: 'absolute',
-                      left: '50%',
-                      top: '50%',
-                      transform: 'translate(-50%, -120px)',
-                      zIndex: 9999
-                    }}
-                  >
-                    💭 Add Note
-                  </Button>
-                </div>
-              )}
             </div>
+
+            {/* Add Note button - shows when there's a valid selection */}
+            {showAddButton && currentSelection && (
+              <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in-0 zoom-in-95 duration-200">
+                <Button
+                  onClick={createHighlightFromSelection}
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700 text-white shadow-xl border border-blue-500 rounded-full px-6 py-3"
+                >
+                  💭 Add Note to "{currentSelection.length > 20 ? currentSelection.substring(0, 20) + '...' : currentSelection}"
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
