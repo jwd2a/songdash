@@ -1,13 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { getOptimalArtwork, generateFallbackArtwork } from "@/lib/artwork-utils"
 
-// Mock song data
+// Mock song data with enhanced artwork
 const mockSongs = {
   "song-1": {
     id: "song-1",
     title: "Blinding Lights",
     artist: "The Weeknd",
     album: "After Hours",
-    artwork: "/placeholder.svg",
+    artwork: generateFallbackArtwork("Blinding Lights", "The Weeknd"),
     lyrics: `Yeah, I've been trying to call
 I've been on my own for long enough
 Maybe you can show me how to love, maybe
@@ -222,13 +223,23 @@ async function fetchFromSpotify(songId: string) {
 
     // Fetch lyrics from LRCLib
     let lyrics = await fetchLyricsFromLRCLib(track.name, track.artists[0]?.name)
+    
+    // Get optimized artwork with fallbacks
+    const artworkSources = getOptimalArtwork(track.album.images || [])
+    
+    // If no Spotify artwork, generate a fallback
+    let primaryArtwork = artworkSources.large
+    if (!primaryArtwork.startsWith('http')) {
+      primaryArtwork = generateFallbackArtwork(track.name, track.artists[0]?.name || 'Unknown Artist')
+    }
 
     return NextResponse.json({
       id: track.id,
       title: track.name,
       artist: track.artists[0]?.name,
       album: track.album.name,
-      artwork: track.album.images[0]?.url || "/placeholder.svg",
+      artwork: primaryArtwork,
+      artworkSources, // Provide multiple sizes
       platforms,
       duration: Math.floor(track.duration_ms / 60000) + ":" + 
                 String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0'),
@@ -283,11 +294,11 @@ async function fetchLyricsFromLRCLib(songTitle: string, artistName: string): Pro
       // Parse synced lyrics to extract just the text (remove timestamps)
       lyrics = bestMatch.syncedLyrics
         .split('\n')
-        .map(line => {
+        .map((line: string) => {
           // Remove LRC timestamp format [mm:ss.xx]
           return line.replace(/^\[\d{2}:\d{2}\.\d{2}\]/, '').trim()
         })
-        .filter(line => line.length > 0) // Remove empty lines
+        .filter((line: string) => line.length > 0) // Remove empty lines
         .join('\n')
     }
 

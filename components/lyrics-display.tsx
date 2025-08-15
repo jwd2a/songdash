@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ShareSection } from "./share-section"
 import { ShareURLGenerator } from "@/lib/share-url-generator"
+import { EnhancedArtwork } from "./enhanced-artwork"
 
 interface Song {
   id: string
@@ -566,11 +567,15 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
               Back
             </Button>
             <div className="flex items-center gap-3">
-              <img
-                src={song.image || "/placeholder.svg"}
-                alt={`${song.title} by ${song.artist}`}
-                className="w-10 h-10 rounded-lg object-cover"
-              />
+              <div className="w-10 h-10 rounded-lg overflow-hidden">
+                <EnhancedArtwork
+                  fallbackUrl={song.image || "/placeholder.svg"}
+                  alt={`${song.title} by ${song.artist}`}
+                  className="w-10 h-10"
+                  size="small"
+                  loading="eager"
+                />
+              </div>
               <div>
                 <h1 className="font-semibold text-foreground">{song.title}</h1>
                 <p className="text-sm text-muted-foreground">{song.artist}</p>

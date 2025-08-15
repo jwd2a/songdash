@@ -5,6 +5,7 @@ import { ArrowLeft, Heart, Share2, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EnhancedShareSection } from "@/components/enhanced-share-section"
 import { IntegratedLyricsDisplay } from "@/components/integrated-lyrics-display"
+import { EnhancedArtwork } from "@/components/enhanced-artwork"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 
@@ -40,6 +41,7 @@ interface Song {
   artist: string
   album: string
   artwork: string
+  artworkSources?: any // ArtworkSources from artwork-utils
   lyrics?: string
   platforms: {
     spotify?: string
@@ -245,17 +247,16 @@ export default function SharedMomentPage() {
       <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
         {/* Song Info - Clean and centered */}
         <div className="text-center space-y-4">
-          {moment.song_artwork ? (
-            <img 
-              src={moment.song_artwork} 
+          <div className="w-32 h-32 mx-auto rounded-xl shadow-lg overflow-hidden">
+            <EnhancedArtwork
+              sources={song?.artworkSources}
+              fallbackUrl={moment.song_artwork || "/placeholder.svg"}
               alt={`${moment.song_title} by ${moment.song_artist}`}
-              className="w-32 h-32 rounded-xl mx-auto object-cover shadow-lg"
+              className="w-32 h-32"
+              size="medium"
+              loading="eager"
             />
-          ) : (
-            <div className="w-32 h-32 bg-gray-100 rounded-xl mx-auto flex items-center justify-center shadow-lg">
-              <span className="text-4xl">🎵</span>
-            </div>
-          )}
+          </div>
           
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-1">{moment.song_title}</h1>

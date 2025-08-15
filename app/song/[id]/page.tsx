@@ -5,6 +5,7 @@ import { ArrowLeft, CheckCircle } from "lucide-react"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { EnhancedArtwork } from "@/components/enhanced-artwork"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 
@@ -485,17 +486,15 @@ export default function SongDetailPage() {
         {/* Song Info */}
         <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
           <div className="flex items-center gap-3 mb-3">
-            {song.artwork ? (
-              <img 
-                src={song.artwork} 
+            <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+              <EnhancedArtwork
+                fallbackUrl={song.artwork}
                 alt={`${song.title} by ${song.artist}`}
-                className="w-16 h-16 rounded object-cover flex-shrink-0"
+                className="w-16 h-16"
+                size="small"
+                loading="eager"
               />
-            ) : (
-              <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center flex-shrink-0">
-                <span className="text-2xl">🎵</span>
-              </div>
-            )}
+            </div>
             <div className="flex-1 min-w-0">
               <h2 className="font-bold text-lg text-gray-900 truncate">{song.title}</h2>
               <p className="text-gray-600 truncate">{song.artist}</p>

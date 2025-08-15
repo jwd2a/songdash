@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Navigation } from "@/components/navigation"
+import { EnhancedArtwork } from "@/components/enhanced-artwork"
 import Link from "next/link"
 
 interface LyricMoment {
@@ -264,11 +265,15 @@ export default function DiscoverPage() {
 
                   {/* Song Info */}
                   <div className="flex items-center gap-3 mb-4 p-3 bg-muted/50 rounded-lg">
-                    <img
-                      src={moment.song.image || "/placeholder.svg"}
-                      alt={`${moment.song.title} by ${moment.song.artist}`}
-                      className="w-12 h-12 rounded object-cover"
-                    />
+                    <div className="w-12 h-12 rounded-lg overflow-hidden">
+                      <EnhancedArtwork
+                        fallbackUrl={moment.song.image || "/placeholder.svg"}
+                        alt={`${moment.song.title} by ${moment.song.artist}`}
+                        className="w-12 h-12"
+                        size="small"
+                        loading="lazy"
+                      />
+                    </div>
                     <div className="flex-1">
                       <p className="font-medium text-foreground">{moment.song.title}</p>
                       <p className="text-sm text-muted-foreground">{moment.song.artist}</p>
