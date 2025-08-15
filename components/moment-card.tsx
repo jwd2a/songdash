@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Heart, Share2, ChevronDown, ChevronUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { EnhancedArtwork } from "@/components/enhanced-artwork"
 
 interface MomentCardProps {
   moment: {
@@ -70,8 +71,14 @@ export function MomentCard({ moment, onLike, onShare }: MomentCardProps) {
 
       {/* Song Info */}
       <div className="flex items-center gap-3 mb-3 p-3 bg-gray-50 rounded-lg">
-        <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center flex-shrink-0">
-          <span className="text-lg">▶️</span>
+        <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+          <EnhancedArtwork
+            fallbackUrl={moment.song.artwork}
+            alt={`${moment.song.title} by ${moment.song.artist}`}
+            className="w-12 h-12"
+            size="small"
+            loading="lazy"
+          />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm text-gray-900 truncate">{moment.song.title}</p>

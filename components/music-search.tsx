@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { LyricsDisplay } from "./lyrics-display"
+import { EnhancedArtwork } from "@/components/enhanced-artwork"
 
 interface Song {
   id: string
@@ -130,11 +131,15 @@ function SongCard({ song, onSelect }: { song: Song; onSelect: (song: Song) => vo
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-4">
         <div className="flex items-center gap-4">
-          <img
-            src={song.image || "/placeholder.svg"}
-            alt={`${song.title} by ${song.artist}`}
-            className="w-16 h-16 rounded-lg object-cover"
-          />
+          <div className="w-16 h-16 rounded-lg overflow-hidden">
+            <EnhancedArtwork
+              fallbackUrl={song.image || "/placeholder.svg"}
+              alt={`${song.title} by ${song.artist}`}
+              className="w-16 h-16"
+              size="small"
+              loading="lazy"
+            />
+          </div>
 
           <div className="flex-1 min-w-0">
             <h4 className="font-semibold text-foreground truncate">{song.title}</h4>
