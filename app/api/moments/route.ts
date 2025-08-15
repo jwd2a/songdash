@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     console.log('💾 Storing moment in Supabase:', JSON.stringify(momentData, null, 2))
 
-    // Store in Supabase
+    // Store in Supabase (using shared_moments table which has the highlights column)
     const { data, error } = await supabase
       .from('shared_moments')
       .insert(momentData)

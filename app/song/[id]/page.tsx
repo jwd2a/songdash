@@ -17,6 +17,7 @@ export default function SongDetailPage() {
   const [generalNote, setGeneralNote] = useState("")
   const [selectedText, setSelectedText] = useState("")
   const [highlights, setHighlights] = useState<Omit<HighlightedSection, 'id' | 'createdAt'>[]>([])
+  const [activatedHighlight, setActivatedHighlight] = useState<HighlightedSection | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -29,6 +30,32 @@ export default function SongDetailPage() {
         if (response.ok) {
           const data = await response.json()
           setSong(data) // The API returns the song data directly
+          
+          // Add demo highlights so you can see the visual improvements immediately
+          if (data.lyrics) {
+            const demoHighlights = [
+              {
+                id: "demo-1",
+                text: "love",
+                note: "This word always hits different in songs 💕",
+                startIndex: data.lyrics.toLowerCase().indexOf("love"),
+                endIndex: data.lyrics.toLowerCase().indexOf("love") + 4,
+                createdAt: new Date().toISOString()
+              },
+              {
+                id: "demo-2", 
+                text: "heart",
+                note: "The emotion in this line gives me chills ❤️",
+                startIndex: data.lyrics.toLowerCase().indexOf("heart"),
+                endIndex: data.lyrics.toLowerCase().indexOf("heart") + 5,
+                createdAt: new Date().toISOString()
+              }
+            ].filter(highlight => highlight.startIndex !== -1) // Only add if the words exist
+
+            if (demoHighlights.length > 0) {
+              setHighlights(demoHighlights)
+            }
+          }
         } else {
           console.error('Failed to load song:', response.statusText)
         }
@@ -46,20 +73,107 @@ export default function SongDetailPage() {
     const selection = window.getSelection()
     if (selection && selection.toString().trim()) {
       setSelectedText(selection.toString().trim())
+      setActivatedHighlight(null) // Clear any active highlight when selecting new text
     }
   }
 
   const addHighlight = (note: string) => {
-    if (selectedText && note.trim()) {
-      const newHighlight = {
-        text: selectedText,
-        note: note.trim(),
-        startIndex: 0, // In a real app, you'd calculate this based on selection
-        endIndex: selectedText.length
+    if (selectedText && note.trim() && song?.lyrics) {
+      // Calculate actual start and end indices in the lyrics text
+      const lyrics = song.lyrics
+      const startIndex = lyrics.indexOf(selectedText)
+      if (startIndex !== -1) {
+        const newHighlight = {
+          id: Date.now().toString(),
+          text: selectedText,
+          note: note.trim(),
+          startIndex,
+          endIndex: startIndex + selectedText.length,
+          createdAt: new Date().toISOString()
+        }
+        setHighlights(prev => [...prev, newHighlight])
+        setActivatedHighlight(newHighlight)
       }
-      setHighlights(prev => [...prev, newHighlight])
       setSelectedText("")
     }
+  }
+
+  const renderLyricsWithHighlights = () => {
+    if (!song?.lyrics) return null
+
+    if (highlights.length === 0) {
+      return song.lyrics.split("\n").map((line, index) => (
+        <p key={index} className="mb-4 leading-relaxed">
+          {line || "\u00A0"}
+        </p>
+      ))
+    }
+
+    // Sort highlights by start index
+    const sortedHighlights = [...highlights].sort((a, b) => a.startIndex - b.startIndex)
+
+    let lastIndex = 0
+    const elements: React.ReactNode[] = []
+    let keyCounter = 0
+
+    sortedHighlights.forEach((highlight) => {
+      // Add text before highlight
+      if (highlight.startIndex > lastIndex) {
+        const beforeText = song.lyrics!.slice(lastIndex, highlight.startIndex)
+        beforeText.split("\n").forEach((line, lineIndex) => {
+          if (lineIndex > 0) elements.push(<br key={`br-${keyCounter++}`} />)
+          if (line) elements.push(<span key={`text-${keyCounter++}`}>{line}</span>)
+        })
+      }
+
+      const highlightedText = song.lyrics!.slice(highlight.startIndex, highlight.endIndex)
+      const hasNote = !!highlight.note
+      const isActivated = activatedHighlight?.id === highlight.id
+
+      const handleHighlightClick = () => {
+        setActivatedHighlight(highlight)
+      }
+
+      elements.push(
+        <mark
+          key={`highlight-${highlight.id}`}
+          className={`
+            px-3 py-2 cursor-pointer transition-all duration-300 ease-in-out relative
+            ${isActivated 
+              ? 'rounded-3xl shadow-lg transform -translate-y-1 z-10' 
+              : 'rounded-2xl hover:shadow-md hover:-translate-y-0.5'
+            }
+            ${isActivated && hasNote
+              ? 'bg-pink-600 text-white shadow-pink-200'
+              : isActivated && !hasNote
+              ? 'bg-violet-600 text-white shadow-violet-200'
+              : hasNote
+              ? 'bg-pink-200 hover:bg-pink-300 text-gray-800'
+              : 'bg-violet-200 hover:bg-violet-300 text-gray-800'
+            }
+          `}
+          onClick={handleHighlightClick}
+          style={{
+            transformOrigin: 'center',
+          }}
+        >
+          {highlightedText}
+        </mark>,
+      )
+
+      lastIndex = highlight.endIndex
+    })
+
+    // Add remaining text
+    if (lastIndex < song.lyrics!.length) {
+      const remainingText = song.lyrics!.slice(lastIndex)
+      remainingText.split("\n").forEach((line, lineIndex) => {
+        if (lineIndex > 0) elements.push(<br key={`br-final-${keyCounter++}`} />)
+        if (line) elements.push(<span key={`text-final-${keyCounter++}`}>{line}</span>)
+      })
+    }
+
+    return <div className="leading-relaxed">{elements}</div>
   }
 
   const handleSaveMoment = async () => {
@@ -224,11 +338,12 @@ export default function SongDetailPage() {
           <h3 className="font-semibold mb-3 text-gray-900">Lyrics</h3>
           {song.lyrics ? (
             <div 
-              className="whitespace-pre-line text-gray-800 leading-relaxed select-text"
+              className="text-gray-800 leading-relaxed select-text cursor-text"
               onMouseUp={handleTextSelection}
               onTouchEnd={handleTextSelection}
+              style={{ userSelect: "text", lineHeight: "2.2" }}
             >
-              {song.lyrics}
+              {renderLyricsWithHighlights()}
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
@@ -240,23 +355,27 @@ export default function SongDetailPage() {
         </div>
 
         {/* Selected Text Popup */}
-        {selectedText && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg p-4 max-w-sm w-full">
-              <h3 className="font-semibold mb-2">Add note to highlight</h3>
-              <p className="text-sm text-gray-600 mb-3 italic">"{selectedText}"</p>
+        {selectedText && !activatedHighlight && (
+          <div className="fixed inset-0 flex items-center justify-center p-4 z-40">
+            <div className="bg-white/98 backdrop-blur-lg rounded-2xl p-6 max-w-sm w-full shadow-2xl border">
+              <h3 className="text-lg font-bold bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent mb-3">
+                ✨ Add Note to Highlight
+              </h3>
+              <p className="text-sm text-gray-600 mb-4 italic p-3 bg-gray-50 rounded-lg">"{selectedText}"</p>
               <Textarea
-                placeholder="Add your note..."
-                className="mb-3"
+                placeholder="What makes this lyric special to you?"
+                className="mb-4 resize-none"
+                rows={3}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && e.ctrlKey) {
                     addHighlight(e.currentTarget.value)
                   }
                 }}
               />
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <Button 
                   size="sm" 
+                  className="flex-1 bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-700 hover:to-pink-700"
                   onClick={(e) => {
                     const textarea = e.currentTarget.parentElement?.previousElementSibling as HTMLTextAreaElement
                     addHighlight(textarea?.value || "")
@@ -267,6 +386,7 @@ export default function SongDetailPage() {
                 <Button 
                   variant="outline" 
                   size="sm" 
+                  className="flex-1 hover:bg-gray-50"
                   onClick={() => setSelectedText("")}
                 >
                   Cancel
@@ -276,17 +396,58 @@ export default function SongDetailPage() {
           </div>
         )}
 
-        {/* Highlights */}
+        {/* Activated Highlight Action Sheet */}
+        {activatedHighlight && (
+          <div className="fixed inset-x-0 bottom-0 z-50 animate-in slide-in-from-bottom-2 duration-500 ease-out">
+            <div className="bg-white/98 backdrop-blur-lg border-t border-gray-200 shadow-2xl rounded-t-3xl">
+              <div className="max-w-4xl mx-auto p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent">
+                    ✨ Your Highlighted Lyrics
+                  </h3>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setActivatedHighlight(null)}
+                    className="hover:bg-gray-100 rounded-full p-2"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <p className="text-lg italic text-foreground">"{activatedHighlight.text}"</p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Your note:</p>
+                    <p className="text-base text-foreground bg-background p-4 rounded-lg border">
+                      {activatedHighlight.note}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Highlights Summary */}
         {highlights.length > 0 && (
           <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
             <h3 className="font-semibold mb-3">Your Highlights ({highlights.length})</h3>
             <div className="space-y-3">
               {highlights.map((highlight, index) => (
-                <div key={index} className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-200">
-                  <blockquote className="text-sm italic text-blue-800 mb-1">
+                <div 
+                  key={index} 
+                  className="p-3 bg-gradient-to-r from-violet-50 to-pink-50 rounded-xl border border-violet-200 cursor-pointer hover:shadow-md transition-all"
+                  onClick={() => setActivatedHighlight(highlight)}
+                >
+                  <blockquote className="text-sm italic text-violet-800 mb-1">
                     "{highlight.text}"
                   </blockquote>
-                  <p className="text-xs text-gray-700">{highlight.note}</p>
+                  <p className="text-xs text-gray-700 line-clamp-2">{highlight.note}</p>
+                  <div className="text-xs text-violet-500 mt-1">Tap to view</div>
                 </div>
               ))}
             </div>
