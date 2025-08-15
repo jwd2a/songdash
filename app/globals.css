@@ -146,12 +146,16 @@
     -ms-user-select: text !important;
     user-select: text !important;
     
-    /* iOS-specific improvements */
-    -webkit-touch-callout: default;
-    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+    /* iOS-specific improvements for natural text selection */
+    -webkit-touch-callout: default !important;
+    -webkit-tap-highlight-color: transparent;
     
-    /* Prevent text selection from being interfered with by page scrolling */
-    touch-action: manipulation;
+    /* Allow natural scrolling but enable text selection */
+    touch-action: auto;
+    
+    /* Ensure text selection works smoothly */
+    -webkit-user-drag: none;
+    -webkit-user-modify: read-only;
   }
 
   /* Improve mobile highlight interaction */
@@ -168,12 +172,24 @@
 
   /* Custom selection colors to distinguish from our highlights */
   .lyrics-selectable::selection {
-    background-color: rgba(59, 130, 246, 0.3); /* Blue selection */
+    background-color: rgba(59, 130, 246, 0.4); /* More visible blue selection */
     color: inherit;
+    text-shadow: none;
   }
   
   .lyrics-selectable::-moz-selection {
-    background-color: rgba(59, 130, 246, 0.3);
+    background-color: rgba(59, 130, 246, 0.4);
     color: inherit;
+    text-shadow: none;
+  }
+
+  /* Better mobile selection handles visibility */
+  @supports (-webkit-touch-callout: default) {
+    .lyrics-selectable {
+      /* iOS specific: ensure selection handles are visible */
+      -webkit-user-select: text;
+      -webkit-touch-callout: default;
+      -webkit-tap-highlight-color: transparent;
+    }
   }
 }
