@@ -39,6 +39,8 @@ interface LyricsDisplayProps {
 export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
   const [highlights, setHighlights] = useState<HighlightedSection[]>([])
   const [selectedHighlight, setSelectedHighlight] = useState<HighlightedSection | null>(null)
+  const [activatedHighlight, setActivatedHighlight] = useState<HighlightedSection | null>(null)
+  const [pendingHighlight, setPendingHighlight] = useState<HighlightedSection | null>(null)
   const [noteText, setNoteText] = useState("")
   const noteTextareaRef = useRef<HTMLTextAreaElement>(null)
   const [shareUrl, setShareUrl] = useState("")
@@ -87,6 +89,42 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
     fetchLyrics()
   }, [song.artist, song.title])
 
+  // Add demo highlights when lyrics load so you can see the visual improvements
+  useEffect(() => {
+    if (lyrics && highlights.length === 0) {
+      const demoHighlights = [
+        {
+          id: "demo-1",
+          text: "love",
+          note: "This word always hits different in songs 💕",
+          startIndex: lyrics.toLowerCase().indexOf("love"),
+          endIndex: lyrics.toLowerCase().indexOf("love") + 4,
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: "demo-2", 
+          text: "heart",
+          note: "The emotion in this line gives me chills ❤️",  
+          startIndex: lyrics.toLowerCase().indexOf("heart"),
+          endIndex: lyrics.toLowerCase().indexOf("heart") + 5,
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: "demo-3",
+          text: "dream",
+          note: "Dreams are what music is made of ✨",
+          startIndex: lyrics.toLowerCase().indexOf("dream"),
+          endIndex: lyrics.toLowerCase().indexOf("dream") + 5,
+          createdAt: new Date().toISOString()
+        }
+      ].filter(highlight => highlight.startIndex !== -1) // Only add if the words exist
+
+      if (demoHighlights.length > 0) {
+        setHighlights(demoHighlights)
+      }
+    }
+  }, [lyrics, highlights.length])
+
   const handleTextSelection = useCallback(() => {
     const selection = window.getSelection()
     if (!selection || selection.rangeCount === 0) return
@@ -110,24 +148,92 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
       endIndex: startIndex + selectedText.length,
     }
 
-    setHighlights((prev) => [...prev, newHighlight])
     selection.removeAllRanges()
-
-    setShowHighlightNotification(true)
-    setTimeout(() => setShowHighlightNotification(false), 2000)
     setSelectedHighlight(newHighlight)
+    // Don't add to highlights yet - wait for user to add note
+  }, [])
+
+  // Simple mouseup handler to detect completed selection
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    // Don't interfere with existing highlights
+    if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
+      return
+    }
+
+    // Small delay to ensure selection is complete
+    setTimeout(() => {
+      const selection = window.getSelection()
+      if (!selection || !selection.toString().trim() || !lyrics) return
+
+      const selectedText = selection.toString().trim()
+      if (selectedText.length < 3) return
+
+      // Check if selection is within lyrics
+      if (!lyricsRef.current) return
+      const range = selection.getRangeAt(0)
+      if (!lyricsRef.current.contains(range.commonAncestorContainer)) return
+
+      // Find the text in lyrics and create pending highlight
+      const startIndex = lyrics.indexOf(selectedText)
+      if (startIndex !== -1) {
+        const newPendingHighlight: HighlightedSection = {
+          id: 'pending-highlight',
+          text: selectedText,
+          startIndex,
+          endIndex: startIndex + selectedText.length,
+        }
+        
+        // Clear browser selection and show our styled highlight + action sheet
+        selection.removeAllRanges()
+        setPendingHighlight(newPendingHighlight)
+        setSelectedHighlight(newPendingHighlight)
+      }
+    }, 100)
+  }, [lyrics])
+
+  const handleLyricsClick = useCallback((e: React.MouseEvent) => {
+    // If clicking on a highlight, let the highlight handler deal with it
+    if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
+      return
+    }
+    
+    // Clear states when clicking elsewhere
+    setSelectedHighlight(null)
+    setActivatedHighlight(null)
+    setPendingHighlight(null)
+    setNoteText("")
   }, [])
 
   const removeHighlight = (highlightId: string) => {
     setHighlights((prev) => prev.filter((h) => h.id !== highlightId))
     setSelectedHighlight(null)
+    setActivatedHighlight(null)
     // Trigger share URL regeneration
     regenerateShareUrl()
   }
 
   const addNoteToHighlight = (highlightId: string, note: string) => {
-    setHighlights((prev) => prev.map((h) => (h.id === highlightId ? { ...h, note } : h)))
-    setSelectedHighlight((prev) => (prev ? { ...prev, note } : null))
+    if (highlightId === 'pending-highlight' && pendingHighlight && note.trim()) {
+      // Convert pending highlight to permanent highlight with note
+      const newHighlight = {
+        ...pendingHighlight,
+        id: Date.now().toString(),
+        note: note.trim(),
+        createdAt: new Date().toISOString()
+      }
+      setHighlights((prev) => [...prev, newHighlight])
+      setShowHighlightNotification(true)
+      setTimeout(() => setShowHighlightNotification(false), 2000)
+      setActivatedHighlight(newHighlight)
+    } else {
+      // Update existing highlight
+      setHighlights((prev) => prev.map((h) => (h.id === highlightId ? { ...h, note } : h)))
+      setActivatedHighlight((prev) => (prev ? { ...prev, note } : null))
+    }
+    
+    // Clear all states
+    setSelectedHighlight(null)
+    setPendingHighlight(null)
     setNoteText("")
     // Trigger share URL regeneration
     regenerateShareUrl()
@@ -166,14 +272,14 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
     )
   }, [song, highlights, generalNote])
 
-  // Auto-focus textarea when a highlight without a note is selected
+  // Auto-focus textarea when a new highlight is selected or editing existing one
   useEffect(() => {
-    if (selectedHighlight && !selectedHighlight.note && noteTextareaRef.current) {
+    if ((selectedHighlight && !activatedHighlight) || (activatedHighlight && noteText !== "")) {
       setTimeout(() => {
         noteTextareaRef.current?.focus()
-      }, 100)
+      }, 500) // Wait for slide-in animation
     }
-  }, [selectedHighlight])
+  }, [selectedHighlight, activatedHighlight, noteText])
 
   // Generate initial share URL and regenerate when content changes
   useEffect(() => {
@@ -187,10 +293,33 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
     }
   }, [])
 
+  // Close panel when clicking outside lyrics area
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if ((selectedHighlight || activatedHighlight || pendingHighlight) && lyricsRef.current && !lyricsRef.current.contains(event.target as Node)) {
+        setSelectedHighlight(null)
+        setActivatedHighlight(null)
+        setPendingHighlight(null)
+        setNoteText("")
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [selectedHighlight, activatedHighlight, pendingHighlight])
+
 
 
   const renderLyricsWithHighlights = () => {
-    if (highlights.length === 0) {
+    // Combine permanent highlights with pending highlight
+    const allHighlights = [...highlights]
+    if (pendingHighlight) {
+      allHighlights.push(pendingHighlight)
+    }
+
+    if (allHighlights.length === 0) {
       return lyrics.split("\n").map((line, index) => (
         <p key={index} className="mb-4 leading-relaxed">
           {line || "\u00A0"}
@@ -199,7 +328,7 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
     }
 
     // Sort highlights by start index
-    const sortedHighlights = [...highlights].sort((a, b) => a.startIndex - b.startIndex)
+    const sortedHighlights = [...allHighlights].sort((a, b) => a.startIndex - b.startIndex)
 
     let lastIndex = 0
     const elements: React.ReactNode[] = []
@@ -217,19 +346,40 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
 
       const highlightedText = lyrics.slice(highlight.startIndex, highlight.endIndex)
       const hasNote = !!highlight.note
+      const isActivated = activatedHighlight?.id === highlight.id
+      const isPendingHighlight = highlight.id === 'pending-highlight'
+
+      const handleHighlightClick = () => {
+        if (!isPendingHighlight) {
+          setSelectedHighlight(highlight)
+          setActivatedHighlight(highlight)
+        }
+      }
 
       elements.push(
         <mark
           key={`highlight-${highlight.id}`}
-          className={`px-2 py-1 rounded-lg cursor-pointer transition-all hover:shadow-md relative ${
-            hasNote
-              ? "bg-pink-200 dark:bg-pink-900/50 hover:bg-pink-300 dark:hover:bg-pink-900/70"
-              : "bg-violet-200 dark:bg-violet-900/50 hover:bg-violet-300 dark:hover:bg-violet-900/70"
-          }`}
-          onClick={() => setSelectedHighlight(highlight)}
+          className={`
+            px-3 py-2 cursor-pointer transition-all duration-300 ease-in-out relative
+            ${isActivated 
+              ? 'rounded-3xl shadow-lg transform -translate-y-1 z-10' 
+              : 'rounded-2xl hover:shadow-md hover:-translate-y-0.5'
+            }
+            ${isActivated && hasNote
+              ? 'bg-pink-600 text-white shadow-pink-200 dark:shadow-pink-900'
+              : isActivated && !hasNote
+              ? 'bg-violet-600 text-white shadow-violet-200 dark:shadow-violet-900'
+              : (hasNote || isPendingHighlight)
+              ? 'bg-pink-200 dark:bg-pink-900/50 hover:bg-pink-300 dark:hover:bg-pink-900/70 text-gray-800 dark:text-pink-100'
+              : 'bg-violet-200 dark:bg-violet-900/50 hover:bg-violet-300 dark:hover:bg-violet-900/70 text-gray-800 dark:text-violet-100'
+            }
+          `}
+          onClick={handleHighlightClick}
+          style={{
+            transformOrigin: 'center',
+          }}
         >
           {highlightedText}
-          {hasNote && <span className="absolute -top-1 -right-1 w-3 h-3 bg-pink-500 rounded-full"></span>}
         </mark>,
       )
 
@@ -305,16 +455,13 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
           </Alert>
         ) : (
           <div>
-            <div className="mb-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                Select any lyrics to highlight them and add your personal notes
-              </p>
-            </div>
+
             
             <div
               ref={lyricsRef}
               className="text-2xl leading-loose select-text cursor-text text-center max-w-none"
-              onMouseUp={handleTextSelection}
+              onMouseUp={handleMouseUp}
+              onClick={handleLyricsClick}
               style={{ userSelect: "text", lineHeight: "2.8" }}
             >
               {renderLyricsWithHighlights()}
@@ -324,7 +471,7 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
       </div>
 
       {showHighlightNotification && (
-        <div className="fixed top-20 right-6 z-50 animate-in slide-in-from-top-2 duration-300">
+        <div className="fixed top-20 right-6 z-[80] animate-in slide-in-from-top-2 duration-300">
           <Card className="bg-violet-100 dark:bg-violet-900 border-violet-300 dark:border-violet-700 shadow-lg">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="w-3 h-3 bg-violet-500 rounded-full animate-pulse"></div>
@@ -336,93 +483,62 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
         </div>
       )}
 
-      {selectedHighlight && (
-        <div className="fixed inset-x-0 bottom-0 z-50 animate-in slide-in-from-bottom-2 duration-300">
-          <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 shadow-2xl">
-            <div className="max-w-4xl mx-auto p-6">
-              <div className="flex items-start justify-between mb-4">
-                <h3 className="text-lg font-semibold">Highlighted Lyrics</h3>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedHighlight(null)}>
-                  <X className="w-4 h-4" />
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <p className="text-lg italic text-foreground">"{selectedHighlight.text}"</p>
+      {(selectedHighlight || activatedHighlight) && (
+        <div className="fixed inset-x-0 bottom-0 z-[100] animate-in slide-in-from-bottom-2 duration-500 ease-out">
+          <div className="bg-white/98 dark:bg-gray-900/98 backdrop-blur-lg border-t border-gray-200 dark:border-gray-700 shadow-2xl rounded-t-3xl">
+            <div className="max-w-4xl mx-auto">
+              {activatedHighlight && activatedHighlight.note && !noteText ? (
+                // Show existing note content
+                <div 
+                  className="p-8 cursor-pointer" 
+                  onClick={() => {
+                    setSelectedHighlight(null)
+                    setActivatedHighlight(null)
+                  }}
+                >
+                  <p className="text-lg text-foreground leading-relaxed">
+                    {activatedHighlight.note}
+                  </p>
                 </div>
-
-                {selectedHighlight.note && !noteText ? (
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-2">Your note:</p>
-                      <p className="text-base text-foreground bg-background p-4 rounded-lg border">
-                        {selectedHighlight.note}
-                      </p>
-                    </div>
-                    <div className="flex gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setNoteText(selectedHighlight.note || "")
-                          setTimeout(() => noteTextareaRef.current?.focus(), 100)
-                        }}
-                      >
-                        <Edit3 className="w-4 h-4 mr-2" />
-                        Edit Note
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => removeHighlight(selectedHighlight.id)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        Remove Highlight
-                      </Button>
-                    </div>
+              ) : (
+                // Show input for new highlight or editing
+                <div className="p-6 space-y-3">
+                  <Textarea
+                    ref={noteTextareaRef}
+                    placeholder="Add a note about these lyrics"
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    rows={3}
+                    className="resize-none"
+                    autoFocus={!!selectedHighlight && !activatedHighlight}
+                  />
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={() => {
+                        const targetHighlight = selectedHighlight || activatedHighlight
+                        if (targetHighlight) {
+                          addNoteToHighlight(targetHighlight.id, noteText)
+                        }
+                      }}
+                      disabled={!noteText.trim()}
+                      className="flex-1"
+                    >
+                      {(activatedHighlight?.note || selectedHighlight?.note) ? "Update" : "Save"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedHighlight(null)
+                        setActivatedHighlight(null)
+                        setNoteText("")
+                      }}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
                   </div>
-                ) : (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      {selectedHighlight.note ? "Edit your note:" : "Add a personal note to this highlight:"}
-                    </p>
-                    <div className="space-y-3">
-                      <Textarea
-                        ref={noteTextareaRef}
-                        placeholder="This makes me think of you! 💕"
-                        value={noteText}
-                        onChange={(e) => setNoteText(e.target.value)}
-                        rows={3}
-                        className="resize-none"
-                      />
-                      <div className="flex gap-3">
-                        <Button
-                          onClick={() => addNoteToHighlight(selectedHighlight.id, noteText)}
-                          disabled={!noteText.trim()}
-                          style={{ backgroundColor: "var(--violet-accent)" }}
-                          className="text-white hover:opacity-90"
-                        >
-                          {selectedHighlight.note ? "Update Note" : "Save Note"}
-                        </Button>
-                        {selectedHighlight.note && (
-                          <Button
-                            variant="outline"
-                            onClick={() => setNoteText("")}
-                          >
-                            Cancel
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          onClick={() => removeHighlight(selectedHighlight.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          Remove Highlight
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
