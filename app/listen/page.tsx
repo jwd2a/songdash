@@ -84,7 +84,7 @@ export default function ListenPage() {
           <Music className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h1 className="text-xl font-semibold mb-2">Song not found</h1>
           <p className="text-muted-foreground mb-4">This song link doesn't exist or may be invalid.</p>
-          <Link href="/">
+          <Link href="/create">
             <Button style={{ backgroundColor: "var(--violet-accent)" }} className="text-white hover:opacity-90">
               Explore SongDash
             </Button>
@@ -107,7 +107,7 @@ export default function ListenPage() {
         <div className="max-w-2xl mx-auto space-y-6">
           {/* Header */}
           <div className="flex items-center gap-4">
-            <Link href="/">
+            <Link href="/create">
               <Button variant="ghost" className="flex items-center gap-2">
                 <ArrowLeft className="w-4 h-4" />
                 Back to SongDash
@@ -216,7 +216,7 @@ export default function ListenPage() {
             <CardContent className="p-6 text-center">
               <h3 className="text-lg font-semibold mb-2">Love this song?</h3>
               <p className="text-muted-foreground mb-4">Create your own lyric moments and share them with friends</p>
-              <Link href="/">
+              <Link href="/create">
                 <Button
                   size="lg"
                   style={{ backgroundColor: "var(--violet-accent)" }}

@@ -713,7 +713,7 @@ export default function SongDetailPage() {
                   variant="outline" 
                   size="sm" 
                   className="flex-1"
-                  onClick={() => router.push('/')}
+                  onClick={() => router.push('/feed')}
                 >
                   Back to Feed
                 </Button>

@@ -13,8 +13,8 @@ export function BottomNavigation() {
       id: "feed",
       label: "Feed",
       icon: Home,
-      href: "/",
-      isActive: pathname === "/"
+      href: "/feed",
+      isActive: pathname === "/feed"
     },
     {
       id: "share",

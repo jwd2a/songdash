@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { usePathname, useRouter } from 'next/navigation'
-import HomePage from '@/app/page'
+import FeedPage from '@/app/feed/page'
 
 // Mock Next.js navigation
 jest.mock('next/navigation', () => ({
@@ -21,9 +21,9 @@ const mockUsePathname = usePathname as jest.MockedFunction<typeof usePathname>
 const mockUseRouter = useRouter as jest.MockedFunction<typeof useRouter>
 const mockPush = jest.fn()
 
-describe('HomePage', () => {
+describe('FeedPage', () => {
   beforeEach(() => {
-    mockUsePathname.mockReturnValue('/')
+    mockUsePathname.mockReturnValue('/feed')
     mockUseRouter.mockReturnValue({
       push: mockPush,
       back: jest.fn(),
@@ -34,40 +34,40 @@ describe('HomePage', () => {
     } as any)
   })
 
-  it('renders the home page with header', () => {
-    render(<HomePage />)
+  it('renders the feed page with header', () => {
+    render(<FeedPage />)
     
     expect(screen.getByText('🎵 SongDash')).toBeInTheDocument()
   })
 
   it('renders the social feed component', () => {
-    render(<HomePage />)
+    render(<FeedPage />)
     
     expect(screen.getByTestId('social-feed')).toBeInTheDocument()
   })
 
   it('renders the bottom navigation', () => {
-    render(<HomePage />)
+    render(<FeedPage />)
     
     expect(screen.getByTestId('bottom-navigation')).toBeInTheDocument()
   })
 
   it('has proper page structure', () => {
-    render(<HomePage />)
+    render(<FeedPage />)
     
     const container = screen.getByText('🎵 SongDash').closest('div')
     expect(container).toHaveClass('bg-white', 'border-b', 'sticky', 'top-0')
   })
 
   it('has proper spacing for bottom navigation', () => {
-    render(<HomePage />)
+    render(<FeedPage />)
     
     const mainContainer = screen.getByText('🎵 SongDash').closest('.min-h-screen')
     expect(mainContainer).toHaveClass('pb-20') // Space for bottom nav
   })
 
   it('uses gray background', () => {
-    render(<HomePage />)
+    render(<FeedPage />)
     
     const mainContainer = screen.getByText('🎵 SongDash').closest('.min-h-screen')
     expect(mainContainer).toHaveClass('bg-gray-50')
