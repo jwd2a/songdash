@@ -1,10 +1,11 @@
 import { render, screen } from '@testing-library/react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import HomePage from '@/app/page'
 
 // Mock Next.js navigation
 jest.mock('next/navigation', () => ({
-  usePathname: jest.fn()
+  usePathname: jest.fn(),
+  useRouter: jest.fn()
 }))
 
 // Mock components
@@ -17,10 +18,20 @@ jest.mock('@/components/social-feed', () => ({
 }))
 
 const mockUsePathname = usePathname as jest.MockedFunction<typeof usePathname>
+const mockUseRouter = useRouter as jest.MockedFunction<typeof useRouter>
+const mockPush = jest.fn()
 
 describe('HomePage', () => {
   beforeEach(() => {
     mockUsePathname.mockReturnValue('/')
+    mockUseRouter.mockReturnValue({
+      push: mockPush,
+      back: jest.fn(),
+      forward: jest.fn(),
+      refresh: jest.fn(),
+      replace: jest.fn(),
+      prefetch: jest.fn()
+    } as any)
   })
 
   it('renders the home page with header', () => {

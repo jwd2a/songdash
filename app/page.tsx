@@ -63,27 +63,29 @@ export default function HomePage() {
   const [moments, setMoments] = useState<SharedMoment[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Redirect to share tab by default
+  // One-time initial focus on Share tab per session
   useEffect(() => {
-    router.push('/create')
+    try {
+      const flagKey = "songdash.initialFocusSet"
+      if (typeof window !== "undefined" && !sessionStorage.getItem(flagKey)) {
+        sessionStorage.setItem(flagKey, "1")
+        router.push('/create')
+      }
+    } catch {
+      // Ignore sessionStorage errors and continue without redirect
+    }
   }, [router])
 
   useEffect(() => {
     const fetchMoments = async () => {
       try {
-        console.log('🔍 Fetching moments from API...')
         const response = await fetch('/api/moments')
-        console.log('📡 API response status:', response.status)
-        
         if (response.ok) {
           const apiMoments: ApiMoment[] = await response.json()
-          console.log('📦 Raw API moments:', apiMoments)
-          
-          // Transform API moments to the format expected by SocialFeed
           const transformedMoments: SharedMoment[] = apiMoments.map((apiMoment, index) => ({
             id: apiMoment.id,
             user: {
-              name: `User ${index + 1}`, // For now, use generic user names
+              name: `User ${index + 1}`,
               username: `@user${index + 1}`,
               avatar: "/placeholder.svg"
             },
@@ -100,19 +102,22 @@ export default function HomePage() {
               note: h.note
             })),
             engagement: {
-              likes: Math.floor(Math.random() * 50) + 1, // Mock engagement data for now
+              likes: Math.floor(Math.random() * 50) + 1,
+              comments: Math.floor(Math.random() * 20),
               isLikedByUser: false
             },
             createdAt: new Date(apiMoment.created_at).toLocaleDateString()
           }))
-          
-          console.log('🔄 Transformed moments:', transformedMoments)
           setMoments(transformedMoments)
         } else {
-          console.error('❌ Failed to fetch moments:', response.statusText)
+          setMoments([])
+          // eslint-disable-next-line no-console
+          console.error('Failed to fetch moments:', response.statusText)
         }
       } catch (error) {
-        console.error('💥 Error fetching moments:', error)
+        setMoments([])
+        // eslint-disable-next-line no-console
+        console.error('Error fetching moments:', error)
       } finally {
         setLoading(false)
       }
@@ -121,6 +126,23 @@ export default function HomePage() {
     fetchMoments()
   }, [])
 
-  // Don't render anything while redirecting to share tab
-  return null
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20">
+      {/* Header */}
+      <div className="bg-white border-b px-4 py-4 sticky top-0 z-40">
+        <h1 className="text-xl font-bold text-center">🎵 SongDash</h1>
+      </div>
+
+      {/* Content */}
+      <div className="p-4">
+        {loading ? (
+          <SocialFeed />
+        ) : (
+          <SocialFeed moments={moments} />
+        )}
+      </div>
+
+      <BottomNavigation />
+    </div>
+  )
 }
