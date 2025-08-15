@@ -63,11 +63,6 @@ export default function HomePage() {
   const [moments, setMoments] = useState<SharedMoment[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Redirect to share tab by default
-  useEffect(() => {
-    router.push('/create')
-  }, [router])
-
   useEffect(() => {
     const fetchMoments = async () => {
       try {
@@ -101,6 +96,7 @@ export default function HomePage() {
             })),
             engagement: {
               likes: Math.floor(Math.random() * 50) + 1, // Mock engagement data for now
+              comments: Math.floor(Math.random() * 20), // Add comments count
               isLikedByUser: false
             },
             createdAt: new Date(apiMoment.created_at).toLocaleDateString()
@@ -121,6 +117,12 @@ export default function HomePage() {
     fetchMoments()
   }, [])
 
-  // Don't render anything while redirecting to share tab
-  return null
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <main className="pb-16">
+        <SocialFeed moments={moments} loading={loading} />
+      </main>
+      <BottomNavigation />
+    </div>
+  )
 }
