@@ -70,14 +70,8 @@ export default function SongDetailPage() {
     loadSong()
   }, [params.id])
 
-  // Simple mouseup handler to detect completed selection
-  const handleMouseUp = (e: React.MouseEvent) => {
-    // Don't interfere with existing highlights
-    if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
-      return
-    }
-
-    // Small delay to ensure selection is complete
+  // Handle text selection completion (both mouse and touch)
+  const handleSelectionEnd = (delay: number = 100) => {
     setTimeout(() => {
       const selection = window.getSelection()
       if (!selection || !selection.toString().trim() || !song?.lyrics) return
@@ -108,7 +102,28 @@ export default function SongDetailPage() {
         setPendingHighlight(newPendingHighlight)
         setSelectedText(selectedText)
       }
-    }, 100)
+    }, delay)
+  }
+
+  // Mouse selection handler
+  const handleMouseUp = (e: React.MouseEvent) => {
+    // Don't interfere with existing highlights
+    if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
+      return
+    }
+
+    handleSelectionEnd(100)
+  }
+
+  // Touch selection handler for mobile
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    // Don't interfere with existing highlights
+    if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
+      return
+    }
+
+    // Mobile text selection often takes longer, so use a longer delay
+    handleSelectionEnd(250)
   }
 
   // Close panels when clicking outside highlights
@@ -141,6 +156,47 @@ export default function SongDetailPage() {
     setSelectedText("")
     setPendingHighlight(null)
   }
+
+  // Additional event listener for mobile selection changes
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      // Only handle if we have lyrics and a selection
+      if (!song?.lyrics) return
+      
+      const selection = window.getSelection()
+      if (!selection || !selection.toString().trim()) return
+
+      // Check if the selection is within our lyrics container
+      const lyricsContainer = document.querySelector('[data-lyrics-container]')
+      if (!lyricsContainer) return
+      
+      try {
+        const range = selection.getRangeAt(0)
+        if (!lyricsContainer.contains(range.commonAncestorContainer)) return
+        
+        // On mobile, sometimes the selection change event fires before touch events
+        // We'll use a longer delay to ensure we capture the final selection
+        const selectedText = selection.toString().trim()
+        if (selectedText.length >= 3) {
+          // Clear any existing timeout to debounce rapid selection changes
+          const timeoutId = setTimeout(() => {
+            handleSelectionEnd(0) // No additional delay since this already has built-in delay
+          }, 100)
+          
+          // Store timeout ID so we can clean it up if needed
+          return () => clearTimeout(timeoutId)
+        }
+      } catch (error) {
+        // Ignore errors - sometimes selection ranges can be invalid during rapid changes
+        console.debug('Selection change error (expected on mobile):', error)
+      }
+    }
+
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange)
+    }
+  }, [song?.lyrics, handleSelectionEnd])
 
   const renderLyricsWithHighlights = () => {
     if (!song?.lyrics) return null
@@ -191,7 +247,7 @@ export default function SongDetailPage() {
         <mark
           key={`highlight-${highlight.id}`}
           className={`
-            px-3 py-2 cursor-pointer transition-all duration-300 ease-in-out relative
+            highlight-mark px-3 py-2 cursor-pointer transition-all duration-300 ease-in-out relative
             ${isActivated 
               ? 'rounded-3xl shadow-lg transform -translate-y-1 z-10' 
               : 'rounded-2xl hover:shadow-md hover:-translate-y-0.5'
@@ -386,11 +442,14 @@ export default function SongDetailPage() {
           <h3 className="font-semibold mb-3 text-gray-900">Lyrics</h3>
           {song.lyrics ? (
             <div 
-              className="text-gray-800 leading-relaxed select-text cursor-text"
+              className="text-gray-800 leading-relaxed lyrics-selectable cursor-text"
               onMouseUp={handleMouseUp}
+              onTouchEnd={handleTouchEnd}
               onClick={handleLyricsClick}
               data-lyrics-container
-              style={{ userSelect: "text", lineHeight: "2.2" }}
+              style={{ 
+                lineHeight: "2.2"
+              }}
             >
               {renderLyricsWithHighlights()}
             </div>

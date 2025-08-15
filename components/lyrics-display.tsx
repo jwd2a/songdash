@@ -153,14 +153,8 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
     // Don't add to highlights yet - wait for user to add note
   }, [])
 
-  // Simple mouseup handler to detect completed selection
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
-    // Don't interfere with existing highlights
-    if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
-      return
-    }
-
-    // Small delay to ensure selection is complete
+  // Handle text selection completion (both mouse and touch)
+  const handleSelectionEnd = useCallback((delay: number = 100) => {
     setTimeout(() => {
       const selection = window.getSelection()
       if (!selection || !selection.toString().trim() || !lyrics) return
@@ -188,8 +182,29 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
         setPendingHighlight(newPendingHighlight)
         setSelectedHighlight(newPendingHighlight)
       }
-    }, 100)
+    }, delay)
   }, [lyrics])
+
+  // Mouse selection handler
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    // Don't interfere with existing highlights
+    if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
+      return
+    }
+
+    handleSelectionEnd(100)
+  }, [handleSelectionEnd])
+
+  // Touch selection handler for mobile
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    // Don't interfere with existing highlights
+    if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
+      return
+    }
+
+    // Mobile text selection often takes longer, so use a longer delay
+    handleSelectionEnd(250)
+  }, [handleSelectionEnd])
 
   const handleLyricsClick = useCallback((e: React.MouseEvent) => {
     // If clicking on a highlight, let the highlight handler deal with it
@@ -293,6 +308,46 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
     }
   }, [])
 
+  // Additional event listener for mobile selection changes
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      // Only handle if we have lyrics and a selection
+      if (!lyrics) return
+      
+      const selection = window.getSelection()
+      if (!selection || !selection.toString().trim()) return
+
+      // Check if the selection is within our lyrics container
+      if (!lyricsRef.current) return
+      
+      try {
+        const range = selection.getRangeAt(0)
+        if (!lyricsRef.current.contains(range.commonAncestorContainer)) return
+        
+        // On mobile, sometimes the selection change event fires before touch events
+        // We'll use a longer delay to ensure we capture the final selection
+        const selectedText = selection.toString().trim()
+        if (selectedText.length >= 3) {
+          // Clear any existing timeout to debounce rapid selection changes
+          const timeoutId = setTimeout(() => {
+            handleSelectionEnd(0) // No additional delay since this already has built-in delay
+          }, 100)
+          
+          // Store timeout ID so we can clean it up if needed
+          return () => clearTimeout(timeoutId)
+        }
+      } catch (error) {
+        // Ignore errors - sometimes selection ranges can be invalid during rapid changes
+        console.debug('Selection change error (expected on mobile):', error)
+      }
+    }
+
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange)
+    }
+  }, [lyrics, handleSelectionEnd])
+
   // Close panel when clicking outside lyrics area
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -360,7 +415,7 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
         <mark
           key={`highlight-${highlight.id}`}
           className={`
-            px-3 py-2 cursor-pointer transition-all duration-300 ease-in-out relative
+            highlight-mark px-3 py-2 cursor-pointer transition-all duration-300 ease-in-out relative
             ${isActivated 
               ? 'rounded-3xl shadow-lg transform -translate-y-1 z-10' 
               : 'rounded-2xl hover:shadow-md hover:-translate-y-0.5'
@@ -459,10 +514,13 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
             
             <div
               ref={lyricsRef}
-              className="text-2xl leading-loose select-text cursor-text text-center max-w-none"
+              className="text-2xl leading-loose lyrics-selectable cursor-text text-center max-w-none"
               onMouseUp={handleMouseUp}
+              onTouchEnd={handleTouchEnd}
               onClick={handleLyricsClick}
-              style={{ userSelect: "text", lineHeight: "2.8" }}
+              style={{ 
+                lineHeight: "2.8"
+              }}
             >
               {renderLyricsWithHighlights()}
             </div>

@@ -137,3 +137,43 @@
     font-family: var(--font-heading);
   }
 }
+
+/* Mobile text selection improvements */
+@layer utilities {
+  .lyrics-selectable {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+    
+    /* iOS-specific improvements */
+    -webkit-touch-callout: default;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+    
+    /* Prevent text selection from being interfered with by page scrolling */
+    touch-action: manipulation;
+  }
+
+  /* Improve mobile highlight interaction */
+  .highlight-mark {
+    /* Ensure touch targets are properly sized on mobile */
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    
+    /* Improve touch responsiveness */
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    touch-action: manipulation;
+  }
+
+  /* Custom selection colors to distinguish from our highlights */
+  .lyrics-selectable::selection {
+    background-color: rgba(59, 130, 246, 0.3); /* Blue selection */
+    color: inherit;
+  }
+  
+  .lyrics-selectable::-moz-selection {
+    background-color: rgba(59, 130, 246, 0.3);
+    color: inherit;
+  }
+}
