@@ -467,32 +467,77 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
         }
       }
 
-      elements.push(
-        <mark
-          key={`highlight-${highlight.id}`}
-          className={`
-            highlight-mark px-3 py-2 cursor-pointer transition-all duration-300 ease-in-out relative
-            ${isActivated 
-              ? 'rounded-3xl shadow-lg transform -translate-y-1 z-10' 
-              : 'rounded-2xl hover:shadow-md hover:-translate-y-0.5'
-            }
-            ${isActivated && hasNote
-              ? 'bg-pink-600 text-white shadow-pink-200 dark:shadow-pink-900'
-              : isActivated && !hasNote
-              ? 'bg-violet-600 text-white shadow-violet-200 dark:shadow-violet-900'
-              : (hasNote || isPendingHighlight)
-              ? 'bg-pink-200 dark:bg-pink-900/50 hover:bg-pink-300 dark:hover:bg-pink-900/70 text-gray-800 dark:text-pink-100'
-              : 'bg-violet-200 dark:bg-violet-900/50 hover:bg-violet-300 dark:hover:bg-violet-900/70 text-gray-800 dark:text-violet-100'
-            }
-          `}
-          onClick={handleHighlightClick}
-          style={{
-            transformOrigin: 'center',
-          }}
-        >
-          {highlightedText}
-        </mark>,
-      )
+      // Check if this highlight spans multiple lines
+      const highlightLines = highlightedText.split('\n')
+      
+      if (highlightLines.length > 1) {
+        // Multi-line highlight: render each line as a separate highlight segment
+        highlightLines.forEach((line, lineIndex) => {
+          if (lineIndex > 0) {
+            elements.push(<br key={`br-multiline-${keyCounter++}`} />)
+          }
+          
+          if (line.trim()) { // Only highlight non-empty lines
+            elements.push(
+              <mark
+                key={`highlight-${highlight.id}-line-${lineIndex}`}
+                className={`
+                  highlight-mark inline-block px-3 py-2 cursor-pointer transition-all duration-300 ease-in-out relative
+                  ${isActivated 
+                    ? 'rounded-3xl shadow-lg transform -translate-y-1 z-10' 
+                    : 'rounded-2xl hover:shadow-md hover:-translate-y-0.5'
+                  }
+                  ${isActivated && hasNote
+                    ? 'bg-pink-600 text-white shadow-pink-200 dark:shadow-pink-900'
+                    : isActivated && !hasNote
+                    ? 'bg-violet-600 text-white shadow-violet-200 dark:shadow-violet-900'
+                    : (hasNote || isPendingHighlight)
+                    ? 'bg-pink-200 dark:bg-pink-900/50 hover:bg-pink-300 dark:hover:bg-pink-900/70 text-gray-800 dark:text-pink-100'
+                    : 'bg-violet-200 dark:bg-violet-900/50 hover:bg-violet-300 dark:hover:bg-violet-900/70 text-gray-800 dark:text-violet-100'
+                  }
+                `}
+                onClick={handleHighlightClick}
+                style={{
+                  transformOrigin: 'center',
+                }}
+              >
+                {line}
+              </mark>
+            )
+          } else if (line === '') {
+            // Empty line in middle of highlight - just add the text
+            elements.push(<span key={`empty-line-${keyCounter++}`}>{line}</span>)
+          }
+        })
+      } else {
+        // Single-line highlight: render as before
+        elements.push(
+          <mark
+            key={`highlight-${highlight.id}`}
+            className={`
+              highlight-mark px-3 py-2 cursor-pointer transition-all duration-300 ease-in-out relative
+              ${isActivated 
+                ? 'rounded-3xl shadow-lg transform -translate-y-1 z-10' 
+                : 'rounded-2xl hover:shadow-md hover:-translate-y-0.5'
+              }
+              ${isActivated && hasNote
+                ? 'bg-pink-600 text-white shadow-pink-200 dark:shadow-pink-900'
+                : isActivated && !hasNote
+                ? 'bg-violet-600 text-white shadow-violet-200 dark:shadow-violet-900'
+                : (hasNote || isPendingHighlight)
+                ? 'bg-pink-200 dark:bg-pink-900/50 hover:bg-pink-300 dark:hover:bg-pink-900/70 text-gray-800 dark:text-pink-100'
+                : 'bg-violet-200 dark:bg-violet-900/50 hover:bg-violet-300 dark:hover:bg-violet-900/70 text-gray-800 dark:text-violet-100'
+              }
+            `}
+            onClick={handleHighlightClick}
+            style={{
+              transformOrigin: 'center',
+            }}
+          >
+            {highlightedText}
+          </mark>,
+        )
+      }
 
       lastIndex = highlight.endIndex
     })
@@ -570,7 +615,7 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
             
             <div
               ref={lyricsRef}
-              className="text-2xl leading-loose lyrics-selectable cursor-text text-center max-w-none relative"
+              className="lyrics-container text-2xl leading-loose lyrics-selectable cursor-text text-center max-w-none relative"
               onClick={handleLyricsInteraction}
               style={{ 
                 lineHeight: "2.8"

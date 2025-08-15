@@ -170,6 +170,26 @@
     touch-action: manipulation;
   }
 
+  /* Multi-line highlight styling */
+  .highlight-mark.inline-block {
+    /* For multi-line highlights, each line should be a block */
+    display: inline-block;
+    width: auto;
+    max-width: fit-content;
+    
+    /* Add slight margin for visual separation */
+    margin-bottom: 2px;
+    
+    /* Ensure consistent padding for multi-line segments */
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  /* Ensure multi-line highlights maintain proper line height */
+  .lyrics-container .highlight-mark {
+    line-height: inherit;
+  }
+
   /* Custom selection colors to distinguish from our highlights */
   .lyrics-selectable::selection {
     background-color: rgba(59, 130, 246, 0.4); /* More visible blue selection */

@@ -283,32 +283,77 @@ export default function SongDetailPage() {
         }
       }
 
-      elements.push(
-        <mark
-          key={`highlight-${highlight.id}`}
-          className={`
-            highlight-mark px-3 py-2 cursor-pointer transition-all duration-300 ease-in-out relative
-            ${isActivated 
-              ? 'rounded-3xl shadow-lg transform -translate-y-1 z-10' 
-              : 'rounded-2xl hover:shadow-md hover:-translate-y-0.5'
-            }
-            ${isActivated && hasNote
-              ? 'bg-pink-600 text-white shadow-pink-200'
-              : isActivated && !hasNote
-              ? 'bg-violet-600 text-white shadow-violet-200'
-              : (hasNote || isPendingHighlight)
-              ? 'bg-pink-200 hover:bg-pink-300 text-gray-800'
-              : 'bg-violet-200 hover:bg-violet-300 text-gray-800'
-            }
-          `}
-          onClick={handleHighlightClick}
-          style={{
-            transformOrigin: 'center',
-          }}
-        >
-          {highlightedText}
-        </mark>,
-      )
+      // Check if this highlight spans multiple lines
+      const highlightLines = highlightedText.split('\n')
+      
+      if (highlightLines.length > 1) {
+        // Multi-line highlight: render each line as a separate highlight segment
+        highlightLines.forEach((line, lineIndex) => {
+          if (lineIndex > 0) {
+            elements.push(<br key={`br-multiline-${keyCounter++}`} />)
+          }
+          
+          if (line.trim()) { // Only highlight non-empty lines
+            elements.push(
+              <mark
+                key={`highlight-${highlight.id}-line-${lineIndex}`}
+                className={`
+                  highlight-mark inline-block px-3 py-2 cursor-pointer transition-all duration-300 ease-in-out relative
+                  ${isActivated 
+                    ? 'rounded-3xl shadow-lg transform -translate-y-1 z-10' 
+                    : 'rounded-2xl hover:shadow-md hover:-translate-y-0.5'
+                  }
+                  ${isActivated && hasNote
+                    ? 'bg-pink-600 text-white shadow-pink-200'
+                    : isActivated && !hasNote
+                    ? 'bg-violet-600 text-white shadow-violet-200'
+                    : (hasNote || isPendingHighlight)
+                    ? 'bg-pink-200 hover:bg-pink-300 text-gray-800'
+                    : 'bg-violet-200 hover:bg-violet-300 text-gray-800'
+                  }
+                `}
+                onClick={handleHighlightClick}
+                style={{
+                  transformOrigin: 'center',
+                }}
+              >
+                {line}
+              </mark>
+            )
+          } else if (line === '') {
+            // Empty line in middle of highlight - just add the text
+            elements.push(<span key={`empty-line-${keyCounter++}`}>{line}</span>)
+          }
+        })
+      } else {
+        // Single-line highlight: render as before
+        elements.push(
+          <mark
+            key={`highlight-${highlight.id}`}
+            className={`
+              highlight-mark px-3 py-2 cursor-pointer transition-all duration-300 ease-in-out relative
+              ${isActivated 
+                ? 'rounded-3xl shadow-lg transform -translate-y-1 z-10' 
+                : 'rounded-2xl hover:shadow-md hover:-translate-y-0.5'
+              }
+              ${isActivated && hasNote
+                ? 'bg-pink-600 text-white shadow-pink-200'
+                : isActivated && !hasNote
+                ? 'bg-violet-600 text-white shadow-violet-200'
+                : (hasNote || isPendingHighlight)
+                ? 'bg-pink-200 hover:bg-pink-300 text-gray-800'
+                : 'bg-violet-200 hover:bg-violet-300 text-gray-800'
+              }
+            `}
+            onClick={handleHighlightClick}
+            style={{
+              transformOrigin: 'center',
+            }}
+          >
+            {highlightedText}
+          </mark>,
+        )
+      }
 
       lastIndex = highlight.endIndex
     })
@@ -482,7 +527,7 @@ export default function SongDetailPage() {
           <h3 className="font-semibold mb-3 text-gray-900">Lyrics</h3>
           {song.lyrics ? (
             <div 
-              className="text-gray-800 leading-relaxed lyrics-selectable cursor-text relative"
+              className="lyrics-container text-gray-800 leading-relaxed lyrics-selectable cursor-text relative"
               onClick={handleLyricsClick}
               data-lyrics-container
               style={{ 
