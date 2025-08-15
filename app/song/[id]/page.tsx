@@ -18,6 +18,7 @@ export default function SongDetailPage() {
   const [selectedText, setSelectedText] = useState("")
   const [highlights, setHighlights] = useState<Omit<HighlightedSection, 'id' | 'createdAt'>[]>([])
   const [activatedHighlight, setActivatedHighlight] = useState<HighlightedSection | null>(null)
+  const [pendingHighlight, setPendingHighlight] = useState<HighlightedSection | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -69,64 +70,88 @@ export default function SongDetailPage() {
     loadSong()
   }, [params.id])
 
-  // Close panel when clicking outside lyrics area
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const lyricsContainer = document.querySelector('[data-lyrics-container]') as HTMLElement
-      if (activatedHighlight && lyricsContainer && !lyricsContainer.contains(event.target as Node)) {
-        setActivatedHighlight(null)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [activatedHighlight])
-
-  const handleTextSelection = () => {
-    const selection = window.getSelection()
-    if (selection && selection.toString().trim()) {
-      setSelectedText(selection.toString().trim())
-      setActivatedHighlight(null) // Clear any active highlight when selecting new text
-    }
-  }
-
-  const handleLyricsClick = (e: React.MouseEvent) => {
-    // If clicking on a highlight, let the highlight handler deal with it
+  // Simple mouseup handler to detect completed selection
+  const handleMouseUp = (e: React.MouseEvent) => {
+    // Don't interfere with existing highlights
     if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
       return
     }
-    
-    // If clicking outside highlights, close any open panels
-    setActivatedHighlight(null)
-  }
 
-  const addHighlight = (note: string) => {
-    if (selectedText && note.trim() && song?.lyrics) {
-      // Calculate actual start and end indices in the lyrics text
-      const lyrics = song.lyrics
-      const startIndex = lyrics.indexOf(selectedText)
+    // Small delay to ensure selection is complete
+    setTimeout(() => {
+      const selection = window.getSelection()
+      if (!selection || !selection.toString().trim() || !song?.lyrics) return
+
+      const selectedText = selection.toString().trim()
+      if (selectedText.length < 3) return
+
+      // Check if selection is within lyrics
+      const lyricsContainer = document.querySelector('[data-lyrics-container]')
+      if (!lyricsContainer) return
+
+      const range = selection.getRangeAt(0)
+      if (!lyricsContainer.contains(range.commonAncestorContainer)) return
+
+      // Find the text in lyrics and create pending highlight
+      const startIndex = song.lyrics.indexOf(selectedText)
       if (startIndex !== -1) {
-        const newHighlight = {
-          id: Date.now().toString(),
+        const newPendingHighlight: HighlightedSection = {
+          id: 'pending-highlight',
           text: selectedText,
-          note: note.trim(),
           startIndex,
           endIndex: startIndex + selectedText.length,
           createdAt: new Date().toISOString()
         }
-        setHighlights(prev => [...prev, newHighlight])
-        setActivatedHighlight(newHighlight)
+        
+        // Clear browser selection and show our styled highlight + action sheet
+        selection.removeAllRanges()
+        setPendingHighlight(newPendingHighlight)
+        setSelectedText(selectedText)
       }
-      setSelectedText("")
+    }, 100)
+  }
+
+  // Close panels when clicking outside highlights
+  const handleLyricsClick = (e: React.MouseEvent) => {
+    if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
+      return
     }
+    
+    // Clear states when clicking elsewhere
+    setSelectedText("")
+    setActivatedHighlight(null)
+    setPendingHighlight(null)
+  }
+
+  const addHighlight = (note: string) => {
+    if (pendingHighlight && note.trim()) {
+      const newHighlight = {
+        id: Date.now().toString(),
+        text: pendingHighlight.text,
+        note: note.trim(),
+        startIndex: pendingHighlight.startIndex,
+        endIndex: pendingHighlight.endIndex,
+        createdAt: new Date().toISOString()
+      }
+      setHighlights(prev => [...prev, newHighlight])
+      setActivatedHighlight(newHighlight)
+    }
+    
+    // Clear all states
+    setSelectedText("")
+    setPendingHighlight(null)
   }
 
   const renderLyricsWithHighlights = () => {
     if (!song?.lyrics) return null
 
-    if (highlights.length === 0) {
+    // Combine permanent highlights with pending highlight
+    const allHighlights = [...highlights]
+    if (pendingHighlight) {
+      allHighlights.push(pendingHighlight)
+    }
+
+    if (allHighlights.length === 0) {
       return song.lyrics.split("\n").map((line, index) => (
         <p key={index} className="mb-4 leading-relaxed">
           {line || "\u00A0"}
@@ -135,7 +160,7 @@ export default function SongDetailPage() {
     }
 
     // Sort highlights by start index
-    const sortedHighlights = [...highlights].sort((a, b) => a.startIndex - b.startIndex)
+    const sortedHighlights = [...allHighlights].sort((a, b) => a.startIndex - b.startIndex)
 
     let lastIndex = 0
     const elements: React.ReactNode[] = []
@@ -154,9 +179,12 @@ export default function SongDetailPage() {
       const highlightedText = song.lyrics!.slice(highlight.startIndex, highlight.endIndex)
       const hasNote = !!highlight.note
       const isActivated = activatedHighlight?.id === highlight.id
+      const isPendingHighlight = highlight.id === 'pending-highlight'
 
       const handleHighlightClick = () => {
-        setActivatedHighlight(highlight)
+        if (!isPendingHighlight) {
+          setActivatedHighlight(highlight)
+        }
       }
 
       elements.push(
@@ -172,7 +200,7 @@ export default function SongDetailPage() {
               ? 'bg-pink-600 text-white shadow-pink-200'
               : isActivated && !hasNote
               ? 'bg-violet-600 text-white shadow-violet-200'
-              : hasNote
+              : (hasNote || isPendingHighlight)
               ? 'bg-pink-200 hover:bg-pink-300 text-gray-800'
               : 'bg-violet-200 hover:bg-violet-300 text-gray-800'
             }
@@ -354,7 +382,7 @@ export default function SongDetailPage() {
         {/* Instructions */}
         <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
           <p className="text-sm text-blue-800 text-center">
-            Select text to highlight and add notes ✨
+            Select lyrics to highlight and add notes ✨
           </p>
         </div>
 
@@ -364,8 +392,7 @@ export default function SongDetailPage() {
           {song.lyrics ? (
             <div 
               className="text-gray-800 leading-relaxed select-text cursor-text"
-              onMouseUp={handleTextSelection}
-              onTouchEnd={handleTextSelection}
+              onMouseUp={handleMouseUp}
               onClick={handleLyricsClick}
               data-lyrics-container
               style={{ userSelect: "text", lineHeight: "2.2" }}
@@ -381,61 +408,61 @@ export default function SongDetailPage() {
           )}
         </div>
 
-        {/* Selected Text Popup */}
-        {selectedText && !activatedHighlight && (
-          <div className="fixed inset-0 flex items-center justify-center p-4 z-[90]">
-            <div className="bg-white/98 backdrop-blur-lg rounded-2xl p-6 max-w-sm w-full shadow-2xl border">
-              <h3 className="text-lg font-bold bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent mb-3">
-                ✨ Add Note to Highlight
-              </h3>
-              <p className="text-sm text-gray-600 mb-4 italic p-3 bg-gray-50 rounded-lg">"{selectedText}"</p>
-              <Textarea
-                placeholder="What makes this lyric special to you?"
-                className="mb-4 resize-none"
-                rows={3}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && e.ctrlKey) {
-                    addHighlight(e.currentTarget.value)
-                  }
-                }}
-              />
-              <div className="flex gap-3">
-                <Button 
-                  size="sm" 
-                  className="flex-1 bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-700 hover:to-pink-700"
-                  onClick={(e) => {
-                    const textarea = e.currentTarget.parentElement?.previousElementSibling as HTMLTextAreaElement
-                    addHighlight(textarea?.value || "")
-                  }}
-                >
-                  Add Highlight
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex-1 hover:bg-gray-50"
-                  onClick={() => setSelectedText("")}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Activated Highlight Action Sheet */}
-        {activatedHighlight && (
+
+        {/* Action Sheet for Highlights */}
+        {(selectedText || activatedHighlight) && (
           <div className="fixed inset-x-0 bottom-0 z-[100] animate-in slide-in-from-bottom-2 duration-500 ease-out">
             <div className="bg-white/98 backdrop-blur-lg border-t border-gray-200 shadow-2xl rounded-t-3xl">
               <div className="max-w-4xl mx-auto">
-                <div 
-                  className="p-8 cursor-pointer"
-                  onClick={() => setActivatedHighlight(null)}
-                >
-                  <p className="text-lg text-foreground leading-relaxed">
-                    {activatedHighlight.note}
-                  </p>
-                </div>
+                {activatedHighlight && activatedHighlight.note && !selectedText ? (
+                  // Show existing note content
+                  <div 
+                    className="p-8 cursor-pointer"
+                    onClick={() => setActivatedHighlight(null)}
+                  >
+                    <p className="text-lg text-foreground leading-relaxed">
+                      {activatedHighlight.note}
+                    </p>
+                  </div>
+                ) : (
+                  // Show input for new highlight
+                  <div className="p-6 space-y-3">
+                    <Textarea
+                      placeholder="Add a note about these lyrics"
+                      className="resize-none"
+                      rows={3}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && e.ctrlKey) {
+                          addHighlight(e.currentTarget.value)
+                        }
+                      }}
+                    />
+                    <div className="flex gap-3">
+                      <Button 
+                        className="flex-1"
+                        onClick={(e) => {
+                          const textarea = e.currentTarget.parentElement?.previousElementSibling as HTMLTextAreaElement
+                          addHighlight(textarea?.value || "")
+                        }}
+                      >
+                        Save
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={() => {
+                          setSelectedText("")
+                          setActivatedHighlight(null)
+                          setPendingHighlight(null)
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
