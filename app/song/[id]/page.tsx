@@ -69,12 +69,37 @@ export default function SongDetailPage() {
     loadSong()
   }, [params.id])
 
+  // Close panel when clicking outside lyrics area
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const lyricsContainer = document.querySelector('[data-lyrics-container]') as HTMLElement
+      if (activatedHighlight && lyricsContainer && !lyricsContainer.contains(event.target as Node)) {
+        setActivatedHighlight(null)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [activatedHighlight])
+
   const handleTextSelection = () => {
     const selection = window.getSelection()
     if (selection && selection.toString().trim()) {
       setSelectedText(selection.toString().trim())
       setActivatedHighlight(null) // Clear any active highlight when selecting new text
     }
+  }
+
+  const handleLyricsClick = (e: React.MouseEvent) => {
+    // If clicking on a highlight, let the highlight handler deal with it
+    if (e.target instanceof HTMLElement && e.target.tagName === 'MARK') {
+      return
+    }
+    
+    // If clicking outside highlights, close any open panels
+    setActivatedHighlight(null)
   }
 
   const addHighlight = (note: string) => {
@@ -341,6 +366,8 @@ export default function SongDetailPage() {
               className="text-gray-800 leading-relaxed select-text cursor-text"
               onMouseUp={handleTextSelection}
               onTouchEnd={handleTextSelection}
+              onClick={handleLyricsClick}
+              data-lyrics-container
               style={{ userSelect: "text", lineHeight: "2.2" }}
             >
               {renderLyricsWithHighlights()}
@@ -356,7 +383,7 @@ export default function SongDetailPage() {
 
         {/* Selected Text Popup */}
         {selectedText && !activatedHighlight && (
-          <div className="fixed inset-0 flex items-center justify-center p-4 z-40">
+          <div className="fixed inset-0 flex items-center justify-center p-4 z-[90]">
             <div className="bg-white/98 backdrop-blur-lg rounded-2xl p-6 max-w-sm w-full shadow-2xl border">
               <h3 className="text-lg font-bold bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent mb-3">
                 ✨ Add Note to Highlight
@@ -398,34 +425,16 @@ export default function SongDetailPage() {
 
         {/* Activated Highlight Action Sheet */}
         {activatedHighlight && (
-          <div className="fixed inset-x-0 bottom-0 z-50 animate-in slide-in-from-bottom-2 duration-500 ease-out">
+          <div className="fixed inset-x-0 bottom-0 z-[100] animate-in slide-in-from-bottom-2 duration-500 ease-out">
             <div className="bg-white/98 backdrop-blur-lg border-t border-gray-200 shadow-2xl rounded-t-3xl">
-              <div className="max-w-4xl mx-auto p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent">
-                    ✨ Your Highlighted Lyrics
-                  </h3>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => setActivatedHighlight(null)}
-                    className="hover:bg-gray-100 rounded-full p-2"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </Button>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-lg italic text-foreground">"{activatedHighlight.text}"</p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">Your note:</p>
-                    <p className="text-base text-foreground bg-background p-4 rounded-lg border">
-                      {activatedHighlight.note}
-                    </p>
-                  </div>
+              <div className="max-w-4xl mx-auto">
+                <div 
+                  className="p-8 cursor-pointer"
+                  onClick={() => setActivatedHighlight(null)}
+                >
+                  <p className="text-lg text-foreground leading-relaxed">
+                    {activatedHighlight.note}
+                  </p>
                 </div>
               </div>
             </div>
