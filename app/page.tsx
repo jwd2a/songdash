@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { BottomNavigation } from "@/components/bottom-navigation"
 import { SocialFeed } from "@/components/social-feed"
 
@@ -58,8 +59,14 @@ interface SharedMoment {
 }
 
 export default function HomePage() {
+  const router = useRouter()
   const [moments, setMoments] = useState<SharedMoment[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Redirect to share tab by default
+  useEffect(() => {
+    router.push('/create')
+  }, [router])
 
   useEffect(() => {
     const fetchMoments = async () => {
@@ -114,19 +121,6 @@ export default function HomePage() {
     fetchMoments()
   }, [])
 
-  return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <div className="bg-white border-b px-4 py-4 sticky top-0 z-40">
-        <h1 className="text-xl font-bold text-center">🎵 SongDash</h1>
-      </div>
-
-      {/* Feed */}
-      <div className="p-4">
-        <SocialFeed moments={moments} />
-      </div>
-
-      <BottomNavigation />
-    </div>
-  )
+  // Don't render anything while redirecting to share tab
+  return null
 }

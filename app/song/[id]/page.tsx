@@ -379,12 +379,7 @@ export default function SongDetailPage() {
           />
         </div>
 
-        {/* Instructions */}
-        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-          <p className="text-sm text-blue-800 text-center">
-            Select lyrics to highlight and add notes ✨
-          </p>
-        </div>
+
 
         {/* Lyrics */}
         <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">

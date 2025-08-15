@@ -455,11 +455,7 @@ export function LyricsDisplay({ song, onBack }: LyricsDisplayProps) {
           </Alert>
         ) : (
           <div>
-            <div className="mb-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                Select lyrics to highlight them and add your personal notes
-              </p>
-            </div>
+
             
             <div
               ref={lyricsRef}
