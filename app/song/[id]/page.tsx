@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { ArrowLeft, CheckCircle } from "lucide-react"
-import { BottomNavigation } from "@/components/bottom-navigation"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { EnhancedArtwork } from "@/components/enhanced-artwork"
+import { BottomSharePanel } from "@/components/bottom-share-panel"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 
@@ -24,6 +24,7 @@ export default function SongDetailPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [showSharePanel, setShowSharePanel] = useState(true) // Always show panel - it replaces the tab bar
 
   useEffect(() => {
     const loadSong = async () => {
@@ -52,7 +53,7 @@ export default function SongDetailPage() {
   const [showAddButton, setShowAddButton] = useState(false)
 
   // Simple selection change handler - show button when there's a valid selection
-  const handleSelectionChange = () => {
+  const handleSelectionChange = useCallback(() => {
     const selection = window.getSelection()
     
     // If no selection, hide button
@@ -113,7 +114,7 @@ export default function SongDetailPage() {
       setCurrentSelection("")
       setShowAddButton(false)
     }
-  }
+  }, [])
 
   // Create highlight from current selection
   const createHighlightFromSelection = () => {
@@ -213,7 +214,7 @@ export default function SongDetailPage() {
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange)
     }
-  }, [])
+  }, [handleSelectionChange])
 
   const renderLyricsWithHighlights = () => {
     if (!song?.lyrics) return null
@@ -347,9 +348,9 @@ export default function SongDetailPage() {
     return <div className="leading-relaxed">{elements}</div>
   }
 
-  const handleSaveMoment = async () => {
-    if (!song || (!generalNote.trim() && highlights.length === 0)) {
-      console.log('❌ Cannot save: missing song or content')
+  const handleSaveMoment = async (comment?: string) => {
+    if (!song) {
+      console.log('❌ Cannot save: missing song')
       return
     }
 
@@ -368,7 +369,7 @@ export default function SongDetailPage() {
         songArtwork: song.artwork,
         songPlatforms: song.platforms,
         songDuration: song.duration,
-        generalNote: generalNote.trim() || undefined,
+        generalNote: comment?.trim() || undefined,
         highlights,
         visibility: 'public'
       }
@@ -391,7 +392,7 @@ export default function SongDetailPage() {
         console.log('✅ Success response:', data)
         setSaved(true)
         setShareUrl(data.shareUrl)
-        // Don't auto-redirect, let user share first
+        // Panel is already showing, just update it to show sharing options
       } else {
         const errorData = await response.json()
         console.error('❌ Failed to save moment:', errorData)
@@ -425,7 +426,6 @@ export default function SongDetailPage() {
             </div>
           </div>
         </div>
-        <BottomNavigation />
       </div>
     )
   }
@@ -445,7 +445,7 @@ export default function SongDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 pb-32"> {/* Padding for minimal panel */}
       {/* Header */}
       <div className="bg-white border-b px-4 py-4 sticky top-0 z-40">
         <div className="flex items-center gap-3">
@@ -482,20 +482,6 @@ export default function SongDetailPage() {
           </div>
         </div>
 
-        {/* Note Input */}
-        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Add a note (optional)
-          </label>
-          <Textarea
-            placeholder="What do you love about this song?"
-            value={generalNote}
-            onChange={(e) => setGeneralNote(e.target.value)}
-            className="min-h-[80px] resize-none border-gray-200"
-          />
-        </div>
-
-
 
         {/* Lyrics */}
         <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
@@ -522,7 +508,7 @@ export default function SongDetailPage() {
 
         {/* Add Note button - shows when there's a valid selection */}
         {showAddButton && currentSelection && (
-          <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in-0 zoom-in-95 duration-200">
+          <div className="fixed bottom-36 left-1/2 transform -translate-x-1/2 z-[1100] animate-in fade-in-0 zoom-in-95 duration-200">
             <Button
               onClick={createHighlightFromSelection}
               size="lg"
@@ -537,7 +523,7 @@ export default function SongDetailPage() {
 
         {/* Action Sheet for Highlights */}
         {(selectedText || activatedHighlight) && (
-          <div className="fixed inset-x-0 bottom-0 z-[100] animate-in slide-in-from-bottom-2 duration-500 ease-out">
+          <div className="fixed inset-x-0 bottom-0 z-[1200] animate-in slide-in-from-bottom-2 duration-500 ease-out">
             <div className="bg-white/98 backdrop-blur-lg border-t border-gray-200 shadow-2xl rounded-t-3xl">
               <div className="max-w-4xl mx-auto">
                 {activatedHighlight && activatedHighlight.note && !selectedText ? (
@@ -615,107 +601,35 @@ export default function SongDetailPage() {
           </div>
         )}
 
-        {/* Save Button */}
-        {!saved && (
+        {/* Success message after sharing - only show if panel is closed */}
+        {saved && shareUrl && !showSharePanel && (
           <div className="pt-4">
-            <Button 
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-              disabled={(!generalNote.trim() && highlights.length === 0) || saving}
-              onClick={handleSaveMoment}
-            >
-              {saving ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  Creating Share Link...
-                </>
-              ) : (
-                "Create Share Link"
-              )}
-            </Button>
-          </div>
-        )}
-
-        {/* Share Interface */}
-        {saved && shareUrl && (
-          <div className="pt-4 space-y-4">
             <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-2">
                 <CheckCircle className="w-5 h-5 text-green-600" />
-                <h3 className="font-semibold text-green-800">Share Link Created!</h3>
+                <h3 className="font-semibold text-green-800">Moment Shared Successfully!</h3>
               </div>
-              
-              <div className="bg-white rounded-lg p-3 border border-green-200 mb-3">
-                <p className="text-sm text-gray-600 mb-2">Share this link with friends:</p>
-                <div className="flex items-center gap-2">
-                  <input 
-                    type="text" 
-                    value={shareUrl} 
-                    readOnly 
-                    className="flex-1 text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 font-mono"
-                  />
-                  <Button 
-                    size="sm" 
-                    onClick={() => {
-                      navigator.clipboard.writeText(shareUrl)
-                      // Could add a toast notification here
-                    }}
-                  >
-                    Copy
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button 
-                  size="sm" 
-                  className="flex-1"
-                  onClick={() => {
-                    if (navigator.share) {
-                      navigator.share({
-                        title: `${song.title} by ${song.artist}`,
-                        text: generalNote || `Check out this song moment I shared!`,
-                        url: shareUrl
-                      })
-                    } else {
-                      // Fallback for browsers without Web Share API
-                      navigator.clipboard.writeText(shareUrl)
-                    }
-                  }}
-                >
-                  Share
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex-1"
-                  onClick={() => router.push('/')}
-                >
-                  Back to Feed
-                </Button>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <p className="text-sm text-gray-500">
-                Want to add this to the main feed too?
-              </p>
+              <p className="text-sm text-green-700">Your song moment has been created and is ready to share.</p>
               <Button 
-                variant="outline" 
-                size="sm" 
-                className="mt-2"
-                onClick={() => {
-                  // TODO: Add to main feed functionality
-                  console.log('Add to main feed')
-                }}
+                className="w-full mt-2"
+                onClick={() => setShowSharePanel(true)}
               >
-                Add to Public Feed
+                Share Again
               </Button>
             </div>
           </div>
         )}
       </div>
 
-      <BottomNavigation />
+      {/* Bottom Share Panel - Replaces tab navigation */}
+      <BottomSharePanel
+        isVisible={showSharePanel}
+        shareUrl={shareUrl}
+        title={song.title}
+        artist={song.artist}
+        onCreateShare={handleSaveMoment}
+        isCreating={saving}
+      />
     </div>
   )
 }
