@@ -74,21 +74,33 @@ CREATE TABLE comments (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Indexes for better performance
+-- Enhanced indexes for better performance
 CREATE INDEX idx_moments_user_id ON moments(user_id);
 CREATE INDEX idx_moments_song_id ON moments(song_id);
 CREATE INDEX idx_moments_created_at ON moments(created_at DESC);
 CREATE INDEX idx_moments_visibility ON moments(visibility);
+CREATE INDEX idx_moments_user_visibility ON moments(user_id, visibility);
 CREATE INDEX idx_highlights_moment_id ON highlights(moment_id);
 CREATE INDEX idx_likes_user_id ON likes(user_id);
 CREATE INDEX idx_likes_moment_id ON likes(moment_id);
+CREATE INDEX idx_likes_user_moment ON likes(user_id, moment_id);
 CREATE INDEX idx_comments_moment_id ON comments(moment_id);
+CREATE INDEX idx_comments_user_id ON comments(user_id);
 CREATE INDEX idx_songs_title ON songs(title);
 CREATE INDEX idx_songs_artist ON songs(artist);
+CREATE INDEX idx_songs_album ON songs(album);
+CREATE INDEX idx_songs_title_artist ON songs(title, artist);
 CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_email ON users(email);
 
--- Full text search index for songs
+-- Full text search indexes for songs
 CREATE INDEX idx_songs_search ON songs USING gin(to_tsvector('english', title || ' ' || artist || ' ' || album));
+CREATE INDEX idx_songs_title_search ON songs USING gin(to_tsvector('english', title));
+CREATE INDEX idx_songs_artist_search ON songs USING gin(to_tsvector('english', artist));
+
+-- Additional performance indexes
+CREATE INDEX idx_songs_created_at ON songs(created_at DESC);
+CREATE INDEX idx_highlights_text_search ON highlights USING gin(to_tsvector('english', text));
 
 -- Row Level Security (RLS)
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
