@@ -12,9 +12,21 @@ import {
 // Rate limiter instance
 const rateLimiter = new RateLimiter(60 * 1000, 30) // 30 requests per minute
 
-// Cleanup rate limiter every 5 minutes
+// In-memory cache for moments (in production, use Redis)
+const momentCache = new Map<string, { data: any; timestamp: number }>()
+const CACHE_DURATION = 10 * 60 * 1000 // 10 minutes
+
+// Cleanup rate limiter and cache every 5 minutes
 setInterval(() => {
   rateLimiter.cleanup()
+  
+  // Cleanup moment cache
+  const now = Date.now()
+  for (const [key, value] of momentCache.entries()) {
+    if (now - value.timestamp > CACHE_DURATION) {
+      momentCache.delete(key)
+    }
+  }
 }, 5 * 60 * 1000)
 
 export async function POST(request: NextRequest) {
@@ -91,6 +103,12 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Moment created successfully:', data)
 
+    // Cache the new moment
+    momentCache.set(momentId, {
+      data: data,
+      timestamp: Date.now()
+    })
+
     // Generate share URL
     const shareUrl = `${request.nextUrl.origin}/shared/${momentId}`
     console.log('🔗 Generated share URL:', shareUrl)
@@ -127,7 +145,29 @@ export async function GET(request: NextRequest) {
     if (id) {
       console.log('🆔 Requested moment ID:', id)
       
-      // Fetch specific moment
+      // Check cache first
+      const cached = momentCache.get(id)
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        console.log('✅ Returning cached moment')
+        
+        // Still update view count asynchronously
+        supabase
+          .from('shared_moments')
+          .update({ 
+            views: (cached.data.views || 0) + 1,
+            last_accessed: new Date().toISOString()
+          })
+          .eq('id', id)
+          .then(() => {
+            // Update cache with new view count
+            cached.data.views = (cached.data.views || 0) + 1
+          })
+          .catch(error => console.error('Failed to update view count:', error))
+        
+        return NextResponse.json(cached.data)
+      }
+      
+      // Fetch specific moment with optimized query
       const { data, error } = await supabase
         .from('shared_moments')
         .select('*')
@@ -146,8 +186,8 @@ export async function GET(request: NextRequest) {
         throw error
       }
 
-      // Update view count
-      await supabase
+      // Update view count asynchronously
+      const updatePromise = supabase
         .from('shared_moments')
         .update({ 
           views: (data.views || 0) + 1,
@@ -155,22 +195,47 @@ export async function GET(request: NextRequest) {
         })
         .eq('id', id)
 
-      return NextResponse.json(data)
+      // Cache the moment
+      const momentWithIncrementedViews = { ...data, views: (data.views || 0) + 1 }
+      momentCache.set(id, {
+        data: momentWithIncrementedViews,
+        timestamp: Date.now()
+      })
+
+      // Don't wait for the view count update
+      updatePromise.catch(error => console.error('Failed to update view count:', error))
+
+      return NextResponse.json(momentWithIncrementedViews)
     }
 
-    // Fetch all moments (for public feed)
-    const { data, error } = await supabase
+    // Fetch all moments (for public feed) with pagination
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50) // Max 50 items
+    const offset = (page - 1) * limit
+
+    const { data, error, count } = await supabase
       .from('shared_moments')
-      .select('*')
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
-      .limit(50)
+      .range(offset, offset + limit - 1)
 
     if (error) {
       console.error('❌ Error fetching moments:', error)
       throw error
     }
 
-    return NextResponse.json(data || [])
+    // Return paginated response
+    return NextResponse.json({
+      data: data || [],
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / limit),
+        hasNext: offset + limit < (count || 0),
+        hasPrev: page > 1
+      }
+    })
 
   } catch (error) {
     console.error('❌ Error in GET /api/moments:', error)
