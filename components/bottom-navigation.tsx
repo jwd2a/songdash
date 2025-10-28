@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, Upload, User } from "lucide-react"
+import { Home, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -14,14 +14,7 @@ export function BottomNavigation() {
       label: "Feed",
       icon: Home,
       href: "/feed",
-      isActive: pathname === "/feed"
-    },
-    {
-      id: "share",
-      label: "Share",
-      icon: Upload,
-      href: "/create",
-      isActive: pathname === "/create" || pathname.startsWith("/song/")
+      isActive: pathname === "/feed" || pathname === "/create" || pathname.startsWith("/song/")
     },
     {
       id: "profile",
