@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation"
 export default function HomePage() {
   const router = useRouter()
 
-  // Redirect to create page by default
+  // Redirect to feed page by default
   useEffect(() => {
-    router.push('/create')
+    router.push('/feed')
   }, [router])
 
   // Don't render anything while redirecting
