@@ -199,71 +199,85 @@ export default function FeedPage() {
 
       {/* Content */}
       <div className="p-4">
-        {/* Search Input */}
+        {/* Search Container */}
         <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <Input
-            type="text"
-            placeholder="Search for a song to share..."
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-10 py-3 text-base bg-white border-gray-200 rounded-lg"
-          />
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 z-10" />
+            <Input
+              type="text"
+              placeholder="Search for a song to share..."
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-10 py-3 text-base bg-white border-gray-200 rounded-lg relative z-10"
+            />
+          </div>
+
+          {/* Search Results Overlay */}
+          {(isSearching || searchResults.length > 0 || (searchQuery && searchResults.length === 0)) && (
+            <div className="absolute top-full left-0 right-0 mt-2 z-50">
+              <div className="bg-white rounded-lg shadow-xl border border-gray-200 max-h-[60vh] overflow-y-auto">
+                {/* Loading State */}
+                {isSearching && (
+                  <div className="space-y-3 p-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="bg-white rounded-lg p-4 animate-pulse border border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-gray-200 rounded"></div>
+                          <div className="flex-1">
+                            <div className="w-32 h-4 bg-gray-200 rounded mb-1"></div>
+                            <div className="w-24 h-3 bg-gray-200 rounded mb-1"></div>
+                            <div className="w-28 h-3 bg-gray-200 rounded"></div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Search Results */}
+                {!isSearching && searchResults.length > 0 && (
+                  <div className="p-4">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 px-2">Search Results</h3>
+                    <div className="space-y-2">
+                      {searchResults.map((song, index) => (
+                        <Link key={song.id} href={`/song/${song.id}`}>
+                          <div
+                            className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-all duration-200 cursor-pointer animate-in slide-in-from-top-2"
+                            style={{ animationDelay: `${index * 50}ms` }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center flex-shrink-0">
+                                <span className="text-lg">🎵</span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-gray-900 truncate">{song.title}</p>
+                                <p className="text-sm text-gray-600 truncate">{song.artist}</p>
+                                <p className="text-xs text-gray-500 truncate">{song.album}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* No Results */}
+                {!isSearching && searchQuery && searchResults.length === 0 && (
+                  <div className="text-center py-12 px-4">
+                    <div className="text-4xl mb-4">🔍</div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No songs found</h3>
+                    <p className="text-gray-500">Try searching with different keywords</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Search Results */}
-        {isSearching && (
-          <div className="space-y-3 mb-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white rounded-lg p-4 animate-pulse">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gray-200 rounded"></div>
-                  <div className="flex-1">
-                    <div className="w-32 h-4 bg-gray-200 rounded mb-1"></div>
-                    <div className="w-24 h-3 bg-gray-200 rounded mb-1"></div>
-                    <div className="w-28 h-3 bg-gray-200 rounded"></div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!isSearching && searchResults.length > 0 && (
-          <div className="space-y-3 mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Search Results</h3>
-            {searchResults.map((song, index) => (
-              <Link key={song.id} href={`/song/${song.id}`}>
-                <div
-                  className="bg-white rounded-lg p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 cursor-pointer hover:scale-[1.02] animate-in slide-in-from-bottom-2"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center flex-shrink-0 transition-transform duration-200 hover:scale-110">
-                      <span className="text-lg">🎵</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 truncate">{song.title}</p>
-                      <p className="text-sm text-gray-600 truncate">{song.artist}</p>
-                      <p className="text-xs text-gray-500 truncate">{song.album}</p>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-
-        {!isSearching && searchQuery && searchResults.length === 0 && (
-          <div className="text-center py-12 mb-6 animate-in fade-in duration-500">
-            <div className="text-4xl mb-4 animate-pulse">🔍</div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No songs found</h3>
-            <p className="text-gray-500">Try searching with different keywords</p>
-          </div>
-        )}
-
         {/* Feed Section */}
-        <div className="mt-8">
+        <div>
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Recent Shares</h2>
             <p className="text-gray-600">Discover what your friends are listening to</p>
